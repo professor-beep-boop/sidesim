@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscodesim.helloWorld",
-        "title": "Hello World"
+        "command": "vscodesim.openSimulator",
+        "title": "iOS Simulator: Open Panel"
       }
     ]
   },
@@ -28,13 +28,16 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.90.0",
     "@types/node": "20.x",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "eslint": "^8.57.0",
-    "typescript": "^5.4.0",
     "@vscode/test-cli": "^0.0.9",
-    "@vscode/test-electron": "^2.3.9"
+    "@vscode/test-electron": "^2.3.9",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "jmuxer": "^2.1.1"
   }
 }
