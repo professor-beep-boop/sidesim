@@ -5,6 +5,7 @@ import {
 	SimulatorTarget,
 	BackendPreference,
 } from './simulator';
+import { setLogSink } from './log';
 
 function backendPreference(): BackendPreference {
 	const value = vscode.workspace
@@ -14,7 +15,11 @@ function backendPreference(): BackendPreference {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+	const channel = vscode.window.createOutputChannel('iOS Simulator');
+	setLogSink((line) => channel.appendLine(line));
 	context.subscriptions.push(
+		{ dispose: () => setLogSink(undefined) },
+		channel,
 		vscode.commands.registerCommand('vscodesim.openSimulator', async () => {
 			try {
 				await openSimulatorPanel(context);
@@ -49,7 +54,8 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 		return;
 	}
 
-	const { backend, kind } = await openBackend(target.udid, backendPreference());
+	const sandbox = vscode.workspace.getConfiguration('vscodesim').get<boolean>('simulator.sandbox', true);
+	const { backend, kind } = await openBackend(target.udid, backendPreference(), { sandbox });
 	let dims;
 	try {
 		dims = await backend.describe();

@@ -10,7 +10,7 @@ import {
 	BackendPreference,
 } from './types';
 import { Companion, isCompanionAvailable, listBootedViaCompanion } from './companion';
-import { SidecarBackend, isSidecarAvailable, listBootedViaSidecar } from './sidecar';
+import { SidecarBackend, SidecarOptions, isSidecarAvailable, listBootedViaSidecar } from './sidecar';
 
 export {
 	SimulatorTarget,
@@ -192,13 +192,14 @@ export type BackendKind = 'sidecar' | 'companion' | 'cli';
 
 export async function listBootedSimulators(
 	preference: BackendPreference = 'auto',
+	sidecarOptions: SidecarOptions = {},
 ): Promise<SimulatorTarget[]> {
 	if (preference === 'sidecar' && !isSidecarAvailable()) {
 		throw new Error('simhelper binary not found — run `swift build` in sidecar/');
 	}
 	if ((preference === 'auto' || preference === 'sidecar') && isSidecarAvailable()) {
 		try {
-			return await listBootedViaSidecar();
+			return await listBootedViaSidecar(sidecarOptions);
 		} catch (err) {
 			if (preference === 'sidecar') {
 				throw err;
@@ -226,13 +227,14 @@ export async function listBootedSimulators(
 export async function openBackend(
 	udid: string,
 	preference: BackendPreference = 'auto',
+	sidecarOptions: SidecarOptions = {},
 ): Promise<{ backend: SimulatorBackend; kind: BackendKind }> {
 	if (preference === 'sidecar' && !isSidecarAvailable()) {
 		throw new Error('simhelper binary not found — run `swift build` in sidecar/');
 	}
 	if ((preference === 'auto' || preference === 'sidecar') && isSidecarAvailable()) {
 		try {
-			const backend = await SidecarBackend.open(udid);
+			const backend = await SidecarBackend.open(udid, sidecarOptions);
 			return { backend, kind: 'sidecar' };
 		} catch (err) {
 			if (preference === 'sidecar') {

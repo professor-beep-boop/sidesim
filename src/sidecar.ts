@@ -1,6 +1,8 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { log } from './log';
 import {
 	SimulatorTarget,
 	ScreenDimensions,
@@ -17,6 +19,45 @@ const CALL_TIMEOUT_MS = 20000;
 const VIDEO_FPS = 30;
 const VIDEO_SCALE = 1.0;
 const VIDEO_BITRATE = 8_000_000;
+/** A framed message larger than this means protocol corruption, not video. */
+const MAX_FRAME_BYTES = 64 * 1024 * 1024;
+const MAX_RESTARTS = 3;
+/** A sidecar surviving this long resets the crash counter. */
+const STABLE_MS = 60_000;
+
+export interface SidecarOptions {
+	/** Confine the sidecar with sandbox-exec (no network, scoped writes). */
+	sandbox?: boolean;
+}
+
+/**
+ * Containment profile for sandbox-exec: the sidecar needs no network at all,
+ * and only writes to CoreSimulator state/log dirs, temp, and devices.
+ * Mach/XPC stays open (allow default) — CoreSimulatorService runs over XPC.
+ */
+function sandboxProfile(): string {
+	// SBPL string literals: escape backslash and double-quote.
+	const home = os.homedir().replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+	return `(version 1)
+(allow default)
+(deny network*)
+(deny file-write*)
+(allow file-write*
+  (subpath "${home}/Library/Developer/CoreSimulator")
+  (subpath "${home}/Library/Logs/CoreSimulator")
+  (subpath "/private/tmp")
+  (subpath "/private/var/folders")
+  (subpath "/dev"))
+`;
+}
+
+function sandboxedSpawnArgs(binary: string): { cmd: string; args: string[] } {
+	// Per-process filename: a fixed name races concurrent extension hosts
+	// (truncate-then-write vs sandbox-exec's read).
+	const profilePath = path.join(os.tmpdir(), `vscodesim-simhelper-${process.pid}.sb`);
+	fs.writeFileSync(profilePath, sandboxProfile());
+	return { cmd: '/usr/bin/sandbox-exec', args: ['-f', profilePath, binary] };
+}
 
 /**
  * Locate the simhelper binary: explicit override, then the in-repo build
@@ -59,11 +100,15 @@ class SidecarProcess {
 	onEvent: ((event: string, payload: Record<string, unknown>) => void) | undefined;
 	/** Unexpected process death. */
 	onExit: ((message: string) => void) | undefined;
+	/** Request-level input failure on a live sidecar (not a process death). */
+	onInputError: ((message: string) => void) | undefined;
 
 	private stderrTail = '';
 
-	private constructor(binary: string) {
-		this.proc = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+	private constructor(binary: string, sandbox: boolean) {
+		const { cmd, args } = sandbox ? sandboxedSpawnArgs(binary) : { cmd: binary, args: [] as string[] };
+		log(`sidecar: spawning ${sandbox ? 'sandboxed ' : ''}${binary}`);
+		this.proc = spawn(cmd, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 		this.proc.stdout?.on('data', (chunk: Buffer) => this.onStdout(chunk));
 		// A write racing the process's death surfaces as an async 'error' on
 		// stdin; without a listener that is an uncaught exception in the
@@ -75,6 +120,7 @@ class SidecarProcess {
 			this.stderrTail = (this.stderrTail + c.toString()).slice(-2000);
 		});
 		this.proc.on('exit', (code) => {
+			log(`sidecar: exited (${code})`);
 			const failure = new Error(`simhelper exited (${code})`);
 			for (const [, call] of this.pending) {
 				clearTimeout(call.timer);
@@ -87,10 +133,14 @@ class SidecarProcess {
 		});
 	}
 
-	static async start(binary: string): Promise<SidecarProcess> {
-		const p = new SidecarProcess(binary);
+	static async start(binary: string, sandbox = false): Promise<SidecarProcess> {
+		const p = new SidecarProcess(binary, sandbox);
 		await p.waitForReady();
 		return p;
+	}
+
+	get isAlive(): boolean {
+		return !this.disposed && this.proc.exitCode === null && this.proc.signalCode === null;
 	}
 
 	private waitForReady(): Promise<void> {
@@ -147,10 +197,12 @@ class SidecarProcess {
 		void this.call(method, params).catch((err: Error) => {
 			// The sidecar can reject while alive too (e.g. "simulator is no
 			// longer booted"); surface the first such failure instead of letting
-			// drags silently no-op.
-			if (!this.sendErrorReported && !this.disposed) {
+			// drags silently no-op. Dead-process rejections are NOT surfaced
+			// here — crash recovery owns those (routing them into onExit would
+			// re-enter the recovery state machine).
+			if (!this.sendErrorReported && this.isAlive) {
 				this.sendErrorReported = true;
-				this.onExit?.(`input failed: ${err.message}`);
+				this.onInputError?.(`input failed: ${err.message}`);
 			}
 		});
 	}
@@ -188,6 +240,14 @@ class SidecarProcess {
 				}
 				const streamId = this.buf.readUInt32BE(1);
 				const length = this.buf.readUInt32BE(5);
+				if (length > MAX_FRAME_BYTES) {
+					// Framing is corrupt; nothing downstream can resync. Kill the
+					// process — the exit handler surfaces it (and recovery respawns).
+					log(`sidecar: oversize frame (${length} bytes) — protocol corrupt, killing`);
+					this.buf = Buffer.alloc(0);
+					this.proc.kill('SIGKILL');
+					return;
+				}
 				if (this.buf.length < 9 + length) {
 					return;
 				}
@@ -237,15 +297,17 @@ class SidecarProcess {
 }
 
 /** List booted simulators via a short-lived simhelper. */
-export async function listBootedViaSidecar(): Promise<SimulatorTarget[]> {
+export async function listBootedViaSidecar(options: SidecarOptions = {}): Promise<SimulatorTarget[]> {
 	const binary = findSidecarBinary();
 	if (!binary) {
 		throw new Error('simhelper binary not found');
 	}
-	const proc = await SidecarProcess.start(binary);
+	const proc = await SidecarProcess.start(binary, options.sandbox ?? false);
 	try {
-		const devices = await proc.call<Array<Record<string, string>>>('listDevices', {});
-		return devices.map((d) => ({ name: d.name, udid: d.udid, osVersion: d.osVersion }));
+		const devices = await proc.call<Array<Record<string, unknown>>>('listDevices', {});
+		return devices
+			.filter((d): d is Record<string, string> => typeof d?.udid === 'string' && typeof d?.name === 'string')
+			.map((d) => ({ name: d.name, udid: d.udid, osVersion: String(d.osVersion ?? '') }));
 	} finally {
 		proc.dispose();
 	}
@@ -267,19 +329,132 @@ export class SidecarBackend implements SimulatorBackend {
 	private streamCounter = 0;
 	private activeStreamId = 0;
 	private lastTouch: { x: number; y: number } | undefined;
+	private video: { onData: (chunk: Buffer) => void; onExit: (message: string) => void; active: boolean } | undefined;
+	private disposed = false;
+	private restarts = 0;
+	private restartTimer: NodeJS.Timeout | undefined;
+	private stableTimer: NodeJS.Timeout | undefined;
 
 	private constructor(
-		private readonly proc: SidecarProcess,
+		private proc: SidecarProcess,
+		private readonly binary: string,
+		private readonly sandbox: boolean,
 		private readonly udid: string,
-	) {}
+	) {
+		this.wireProc();
+	}
 
-	static async open(udid: string): Promise<SidecarBackend> {
+	static async open(udid: string, options: SidecarOptions = {}): Promise<SidecarBackend> {
 		const binary = findSidecarBinary();
 		if (!binary) {
 			throw new Error('simhelper binary not found');
 		}
-		const proc = await SidecarProcess.start(binary);
-		return new SidecarBackend(proc, udid);
+		const sandbox = options.sandbox ?? false;
+		const proc = await SidecarProcess.start(binary, sandbox);
+		return new SidecarBackend(proc, binary, sandbox, udid);
+	}
+
+	/** Attach frame/event/exit routing to the current process. */
+	private wireProc(): void {
+		this.proc.onFrame = (streamId, payload) => {
+			if (streamId === this.activeStreamId) {
+				this.video?.onData(payload);
+			}
+		};
+		this.proc.onEvent = (event, payload) => {
+			if (event === 'videoEnded' || event === 'videoError') {
+				this.video?.onExit(`${event}: ${payload.message ?? payload.udid ?? ''}`);
+			}
+		};
+		this.proc.onExit = (message) => this.onProcDeath(message);
+		this.proc.onInputError = (message) => this.video?.onExit(message);
+		// Stable for a while → forgive past crashes.
+		clearTimeout(this.stableTimer);
+		this.stableTimer = setTimeout(() => {
+			this.restarts = 0;
+		}, STABLE_MS);
+		this.stableTimer.unref?.();
+	}
+
+	/**
+	 * Crash recovery: respawn with exponential backoff and resume the video
+	 * stream. After MAX_RESTARTS without a stable stretch, give up and surface
+	 * the failure to the panel.
+	 */
+	private recovering = false;
+
+	private onProcDeath(message: string): void {
+		if (this.disposed || this.recovering) {
+			// Idempotent per death: late rejections from the dying process's
+			// pending calls must not schedule a second respawn.
+			return;
+		}
+		this.recovering = true;
+		// Sever and dispose the dead process: buffered events from its streams
+		// must not reach current state, and if this "death" was actually an RPC
+		// failure the old process must not linger alive contending for the sim.
+		const dead = this.proc;
+		dead.onFrame = undefined;
+		dead.onEvent = undefined;
+		dead.onExit = undefined;
+		dead.onInputError = undefined;
+		dead.dispose();
+
+		clearTimeout(this.stableTimer);
+		if (this.restarts >= MAX_RESTARTS) {
+			log(`sidecar: giving up after ${this.restarts} restarts`);
+			this.video?.onExit(message);
+			return;
+		}
+		this.restarts++;
+		const delay = 500 * 4 ** (this.restarts - 1); // 500ms, 2s, 8s
+		log(`sidecar: died (${message}); restart ${this.restarts}/${MAX_RESTARTS} in ${delay}ms`);
+		this.restartTimer = setTimeout(() => {
+			void (async () => {
+				if (this.disposed) {
+					return;
+				}
+				try {
+					const fresh = await SidecarProcess.start(this.binary, this.sandbox);
+					if (this.disposed) {
+						// Panel closed while the respawn was in flight.
+						fresh.dispose();
+						return;
+					}
+					this.proc = fresh;
+					this.recovering = false;
+					this.wireProc();
+					if (this.video?.active) {
+						this.startStream();
+					}
+					log('sidecar: recovered');
+				} catch (err) {
+					this.recovering = false;
+					this.onProcDeath(err instanceof Error ? err.message : String(err));
+				}
+			})();
+		}, delay);
+	}
+
+	private startStream(): void {
+		const streamId = ++this.streamCounter;
+		this.activeStreamId = streamId;
+		void this.proc
+			.call('startVideo', {
+				udid: this.udid,
+				streamId,
+				fps: VIDEO_FPS,
+				scaleFactor: VIDEO_SCALE,
+				encoding: 'h264',
+				bitrate: VIDEO_BITRATE,
+			})
+			.catch((err) => {
+				// Process deaths route through onProcDeath; only surface
+				// request-level failures from a still-live sidecar.
+				if (!this.disposed && this.proc.isAlive) {
+					this.video?.onExit(err instanceof Error ? err.message : String(err));
+				}
+			});
 	}
 
 	get input(): InputSink {
@@ -322,33 +497,18 @@ export class SidecarBackend implements SimulatorBackend {
 	}
 
 	createVideo(onData: (chunk: Buffer) => void, onExit: (message: string) => void): VideoSource {
-		this.proc.onFrame = (streamId, payload) => {
-			if (streamId === this.activeStreamId) {
-				onData(payload);
-			}
-		};
-		this.proc.onEvent = (event, payload) => {
-			if (event === 'videoEnded' || event === 'videoError') {
-				onExit(`${event}: ${payload.message ?? payload.udid ?? ''}`);
-			}
-		};
-		this.proc.onExit = onExit;
+		this.video = { onData, onExit, active: false };
 		return {
 			start: () => {
-				const streamId = ++this.streamCounter;
-				this.activeStreamId = streamId;
-				void this.proc
-					.call('startVideo', {
-						udid: this.udid,
-						streamId,
-						fps: VIDEO_FPS,
-						scaleFactor: VIDEO_SCALE,
-						encoding: 'h264',
-						bitrate: VIDEO_BITRATE,
-					})
-					.catch((err) => onExit(err instanceof Error ? err.message : String(err)));
+				if (this.video) {
+					this.video.active = true;
+				}
+				this.startStream();
 			},
 			stop: () => {
+				if (this.video) {
+					this.video.active = false;
+				}
 				this.activeStreamId = 0;
 				this.proc.send('stopVideo', { udid: this.udid });
 			},
@@ -356,6 +516,9 @@ export class SidecarBackend implements SimulatorBackend {
 	}
 
 	dispose(): void {
+		this.disposed = true;
+		clearTimeout(this.restartTimer);
+		clearTimeout(this.stableTimer);
 		// stdin EOF makes the sidecar release touches and stop streams itself.
 		this.proc.dispose();
 	}

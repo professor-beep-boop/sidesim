@@ -37,6 +37,11 @@
           ],
           "default": "auto",
           "description": "How the simulator panel connects to booted simulators for video and input."
+        },
+        "vscodesim.simulator.sandbox": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the simhelper sidecar under sandbox-exec (no network access, file writes limited to CoreSimulator and temp directories)."
         }
       }
     }
