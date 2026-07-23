@@ -10,7 +10,7 @@ function backendPreference(): BackendPreference {
 	const value = vscode.workspace
 		.getConfiguration('vscodesim')
 		.get<string>('simulator.backend', 'auto');
-	return value === 'companion' || value === 'cli' ? value : 'auto';
+	return value === 'sidecar' || value === 'companion' || value === 'cli' ? value : 'auto';
 }
 
 export function activate(context: vscode.ExtensionContext) {

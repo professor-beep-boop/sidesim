@@ -74,4 +74,4 @@ export interface SimulatorBackend {
 	dispose(): void;
 }
 
-export type BackendPreference = 'auto' | 'companion' | 'cli';
+export type BackendPreference = 'auto' | 'sidecar' | 'companion' | 'cli';

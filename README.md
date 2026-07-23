@@ -40,7 +40,8 @@ The panel can talk to a simulator two ways, selected by
 
 | Value | How it works | Trade-off |
 | --- | --- | --- |
-| `auto` (default) | Prefer `companion`, fall back to `cli` | Best available |
+| `auto` (default) | Prefer `sidecar`, then `companion`, then `cli` | Best available |
+| `sidecar` | Native `simhelper` process (see `sidecar/`): full-resolution H.264 encoded correctly (no B-frames, 2s keyframes) + in-process HID including native text | Best quality and latency; needs `swift build` in `sidecar/` |
 | `companion` | Persistent gRPC connection to `idb_companion` — framebuffer H.264 video and a held-open HID input stream | Low latency; taps are instant |
 | `cli` | `idb video-stream` for video, one `idb ui …` process per input event | Simple; ~0.5s per-tap latency |
 

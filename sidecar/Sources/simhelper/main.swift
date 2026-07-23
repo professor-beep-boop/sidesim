@@ -23,6 +23,7 @@ final class VideoContext {
 	var encoder: H264Encoder?
 	var stopped = false
 	var expectedBytes = 0
+	var strideErrorReported = false
 
 	init(streamId: UInt32, width: Int, height: Int, fps: Int, bitrate: Int, encoding: String, udid: String) {
 		self.streamId = streamId
@@ -50,9 +51,29 @@ final class VideoContext {
 			encoder = nil
 		}
 		if encoder == nil {
-			guard height > 0, data.count % height == 0 else { return }
-			let stride = data.count / height
-			guard stride >= width * 4 else { return }
+			// The framebuffer pads rows AND row count (e.g. 1206x2622 arrives as
+			// 4864-byte rows x 2624); search nearby padded heights for a stride
+			// that fits.
+			guard height > 0 else { return }
+			var stride = 0
+			for paddedHeight in height...(height + 64) where data.count % paddedHeight == 0 {
+				let s = data.count / paddedHeight
+				if s % 4 == 0 && s >= width * 4 && s < width * 4 + 256 {
+					stride = s
+					break
+				}
+			}
+			guard stride > 0 else {
+				// Report once, but keep the context alive: rotation produces
+				// frames we can't size against the start dimensions, and rotating
+				// back must recover.
+				if !strideErrorReported {
+					strideErrorReported = true
+					StdoutWriter.shared.sendEvent("videoError", ["udid": udid, "message": "cannot derive stride for \(data.count)-byte frame at \(width)x\(height)"])
+				}
+				return
+			}
+			strideErrorReported = false
 			expectedBytes = data.count
 			encoder = try? H264Encoder(width: width, height: height, stride: stride, fps: Int32(fps), bitrate: bitrate) { [streamId] annexB in
 				StdoutWriter.shared.sendFrame(streamId: streamId, payload: annexB)

@@ -7,7 +7,7 @@
 	const statusEl = document.getElementById('status');
 	const deviceLabel = document.getElementById('device-label');
 
-	const BUILD = 'raw6';
+	const BUILD = 'sc1';
 
 	let widthPoints = 0;
 	let heightPoints = 0;

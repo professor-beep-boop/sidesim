@@ -10,6 +10,7 @@ import {
 	BackendPreference,
 } from './types';
 import { Companion, isCompanionAvailable, listBootedViaCompanion } from './companion';
+import { SidecarBackend, isSidecarAvailable, listBootedViaSidecar } from './sidecar';
 
 export {
 	SimulatorTarget,
@@ -187,12 +188,24 @@ class CliBackend implements SimulatorBackend {
 }
 
 /** Which backend a live panel ended up using, for status display. */
-export type BackendKind = 'companion' | 'cli';
+export type BackendKind = 'sidecar' | 'companion' | 'cli';
 
 export async function listBootedSimulators(
 	preference: BackendPreference = 'auto',
 ): Promise<SimulatorTarget[]> {
-	if (preference !== 'cli' && (await isCompanionAvailable())) {
+	if (preference === 'sidecar' && !isSidecarAvailable()) {
+		throw new Error('simhelper binary not found — run `swift build` in sidecar/');
+	}
+	if ((preference === 'auto' || preference === 'sidecar') && isSidecarAvailable()) {
+		try {
+			return await listBootedViaSidecar();
+		} catch (err) {
+			if (preference === 'sidecar') {
+				throw err;
+			}
+		}
+	}
+	if (preference !== 'cli' && preference !== 'sidecar' && (await isCompanionAvailable())) {
 		try {
 			return await listBootedViaCompanion();
 		} catch {
@@ -206,15 +219,29 @@ export async function listBootedSimulators(
 }
 
 /**
- * Open a backend for a booted simulator. In `auto` mode, prefer the idb
- * companion gRPC path (low-latency input, framebuffer video) and fall back to
- * the idb CLI when the companion is unavailable or fails to connect.
+ * Open a backend for a booted simulator. In `auto` mode, prefer the native
+ * simhelper sidecar (correct H.264 + in-process HID), then the idb companion
+ * gRPC path, then the idb CLI.
  */
 export async function openBackend(
 	udid: string,
 	preference: BackendPreference = 'auto',
 ): Promise<{ backend: SimulatorBackend; kind: BackendKind }> {
-	if (preference !== 'cli' && (await isCompanionAvailable())) {
+	if (preference === 'sidecar' && !isSidecarAvailable()) {
+		throw new Error('simhelper binary not found — run `swift build` in sidecar/');
+	}
+	if ((preference === 'auto' || preference === 'sidecar') && isSidecarAvailable()) {
+		try {
+			const backend = await SidecarBackend.open(udid);
+			return { backend, kind: 'sidecar' };
+		} catch (err) {
+			if (preference === 'sidecar') {
+				throw err;
+			}
+			// auto: fall through
+		}
+	}
+	if (preference !== 'cli' && preference !== 'sidecar' && (await isCompanionAvailable())) {
 		try {
 			const backend = await Companion.open(udid);
 			return { backend, kind: 'companion' };

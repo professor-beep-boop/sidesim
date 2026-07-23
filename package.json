@@ -25,11 +25,13 @@
           "type": "string",
           "enum": [
             "auto",
+            "sidecar",
             "companion",
             "cli"
           ],
           "enumDescriptions": [
-            "Prefer the idb_companion gRPC backend; fall back to the idb CLI if it is unavailable.",
+            "Prefer the native simhelper sidecar, then idb_companion, then the idb CLI.",
+            "Always use the native simhelper sidecar (correct H.264 video, in-process HID). Fails if the binary is missing.",
             "Always use the idb_companion gRPC backend (low-latency input and video). Fails if idb_companion is not installed.",
             "Always use the idb command-line backend."
           ],
