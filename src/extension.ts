@@ -54,8 +54,12 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 		return;
 	}
 
-	const sandbox = vscode.workspace.getConfiguration('vscodesim').get<boolean>('simulator.sandbox', true);
-	const { backend, kind } = await openBackend(target.udid, backendPreference(), { sandbox });
+	const config = vscode.workspace.getConfiguration('vscodesim');
+	const { backend, kind } = await openBackend(target.udid, backendPreference(), {
+		sandbox: config.get<boolean>('simulator.sandbox', true),
+		fps: config.get<number>('simulator.fps', 30),
+		scale: config.get<number>('simulator.scale', 1),
+	});
 	let dims;
 	try {
 		dims = await backend.describe();
@@ -227,12 +231,15 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, title: strin
 <body>
 <div id="toolbar">
 	<span id="device-label"></span>
-	<button id="btn-home" title="Home">Home</button>
-	<button id="btn-lock" title="Lock">Lock</button>
+	<span class="spacer"></span>
+	<button id="btn-home" title="Home button">⌂ Home</button>
+	<button id="btn-lock" title="Lock button">⏻ Lock</button>
 </div>
 <div id="screen-wrap">
-	<canvas id="player"></canvas>
-	<div id="touch-layer" tabindex="0"></div>
+	<div id="bezel">
+		<canvas id="player"></canvas>
+		<div id="touch-layer" tabindex="0"></div>
+	</div>
 </div>
 <div id="status">connecting…</div>
 <script src="${h264Uri}"></script>

@@ -28,6 +28,10 @@ const STABLE_MS = 60_000;
 export interface SidecarOptions {
 	/** Confine the sidecar with sandbox-exec (no network, scoped writes). */
 	sandbox?: boolean;
+	/** Stream frame rate (applied at open; the framebuffer stream is fixed per session). */
+	fps?: number;
+	/** Stream resolution as a fraction of native (applied at open). */
+	scale?: number;
 }
 
 /**
@@ -324,7 +328,6 @@ export function isSidecarAvailable(): boolean {
 export class SidecarBackend implements SimulatorBackend {
 	readonly livePhases = true;
 	readonly videoMode: VideoMode = 'h264';
-	readonly videoScale = VIDEO_SCALE;
 
 	private streamCounter = 0;
 	private activeStreamId = 0;
@@ -340,6 +343,8 @@ export class SidecarBackend implements SimulatorBackend {
 		private readonly binary: string,
 		private readonly sandbox: boolean,
 		private readonly udid: string,
+		private readonly fps: number,
+		readonly videoScale: number,
 	) {
 		this.wireProc();
 	}
@@ -350,8 +355,10 @@ export class SidecarBackend implements SimulatorBackend {
 			throw new Error('simhelper binary not found');
 		}
 		const sandbox = options.sandbox ?? false;
+		const fps = Math.min(Math.max(options.fps ?? VIDEO_FPS, 5), 60);
+		const scale = Math.min(Math.max(options.scale ?? VIDEO_SCALE, 0.25), 1);
 		const proc = await SidecarProcess.start(binary, sandbox);
-		return new SidecarBackend(proc, binary, sandbox, udid);
+		return new SidecarBackend(proc, binary, sandbox, udid, fps, scale);
 	}
 
 	/** Attach frame/event/exit routing to the current process. */
@@ -443,8 +450,8 @@ export class SidecarBackend implements SimulatorBackend {
 			.call('startVideo', {
 				udid: this.udid,
 				streamId,
-				fps: VIDEO_FPS,
-				scaleFactor: VIDEO_SCALE,
+				fps: this.fps,
+				scaleFactor: this.videoScale,
 				encoding: 'h264',
 				bitrate: VIDEO_BITRATE,
 			})

@@ -42,6 +42,20 @@
           "type": "boolean",
           "default": true,
           "description": "Run the simhelper sidecar under sandbox-exec (no network access, file writes limited to CoreSimulator and temp directories)."
+        },
+        "vscodesim.simulator.fps": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 60,
+          "description": "Video frame rate. Applied when a panel opens (the stream is fixed for the panel's lifetime)."
+        },
+        "vscodesim.simulator.scale": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.25,
+          "maximum": 1,
+          "description": "Video resolution as a fraction of the simulator's native resolution. Applied when a panel opens."
         }
       }
     }
