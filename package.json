@@ -17,7 +17,27 @@
         "command": "vscodesim.openSimulator",
         "title": "iOS Simulator: Open Panel"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "iOS Simulator",
+      "properties": {
+        "vscodesim.simulator.backend": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "companion",
+            "cli"
+          ],
+          "enumDescriptions": [
+            "Prefer the idb_companion gRPC backend; fall back to the idb CLI if it is unavailable.",
+            "Always use the idb_companion gRPC backend (low-latency input and video). Fails if idb_companion is not installed.",
+            "Always use the idb command-line backend."
+          ],
+          "default": "auto",
+          "description": "How the simulator panel connects to booted simulators for video and input."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -38,6 +58,7 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "jmuxer": "^2.1.1"
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1"
   }
 }

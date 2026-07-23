@@ -1,18 +1,25 @@
 import { spawn, execFile, ChildProcess } from 'child_process';
+import {
+	SimulatorTarget,
+	ScreenDimensions,
+	SimulatorBackend,
+	InputSink,
+	VideoSource,
+	ButtonName,
+	BackendPreference,
+} from './types';
+import { Companion, isCompanionAvailable, listBootedViaCompanion } from './companion';
 
-export interface SimulatorTarget {
-	name: string;
-	udid: string;
-	osVersion: string;
-}
-
-export interface ScreenDimensions {
-	width: number;
-	height: number;
-	density: number;
-	widthPoints: number;
-	heightPoints: number;
-}
+export {
+	SimulatorTarget,
+	ScreenDimensions,
+	SimulatorBackend,
+	InputSink,
+	VideoSource,
+	VideoMode,
+	ButtonName,
+	BackendPreference,
+} from './types';
 
 function idb(args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -26,7 +33,7 @@ function idb(args: string[]): Promise<string> {
 	});
 }
 
-export async function listBootedSimulators(): Promise<SimulatorTarget[]> {
+async function listBootedViaCli(): Promise<SimulatorTarget[]> {
 	const out = await idb(['list-targets', '--json']);
 	const targets: SimulatorTarget[] = [];
 	for (const line of out.split('\n')) {
@@ -45,7 +52,7 @@ export async function listBootedSimulators(): Promise<SimulatorTarget[]> {
 	return targets;
 }
 
-export async function getScreenDimensions(udid: string): Promise<ScreenDimensions> {
+async function describeViaCli(udid: string): Promise<ScreenDimensions> {
 	const out = await idb(['describe', '--udid', udid, '--json']);
 	const d = JSON.parse(out).screen_dimensions;
 	return {
@@ -57,7 +64,8 @@ export async function getScreenDimensions(udid: string): Promise<ScreenDimension
 	};
 }
 
-export class VideoStream {
+/** Video feed backed by `idb video-stream` (one persistent process). */
+class CliVideoStream implements VideoSource {
 	private proc: ChildProcess | undefined;
 
 	constructor(
@@ -94,15 +102,16 @@ export class VideoStream {
 	}
 }
 
-export class InputController {
+/** Input backed by one `idb ui …` process per event (~0.5s latency each). */
+class CliInput implements InputSink {
 	constructor(private readonly udid: string) {}
 
-	tap(x: number, y: number): Promise<string> {
-		return idb(['ui', 'tap', '--udid', this.udid, String(Math.round(x)), String(Math.round(y))]);
+	async tap(x: number, y: number): Promise<void> {
+		await idb(['ui', 'tap', '--udid', this.udid, String(Math.round(x)), String(Math.round(y))]);
 	}
 
-	swipe(x1: number, y1: number, x2: number, y2: number, durationSec: number): Promise<string> {
-		return idb([
+	async swipe(x1: number, y1: number, x2: number, y2: number, durationSec: number): Promise<void> {
+		await idb([
 			'ui', 'swipe', '--udid', this.udid,
 			String(Math.round(x1)), String(Math.round(y1)),
 			String(Math.round(x2)), String(Math.round(y2)),
@@ -110,15 +119,79 @@ export class InputController {
 		]);
 	}
 
-	text(text: string): Promise<string> {
-		return idb(['ui', 'text', '--udid', this.udid, text]);
+	async text(value: string): Promise<void> {
+		await idb(['ui', 'text', '--udid', this.udid, value]);
 	}
 
-	key(hidCode: number): Promise<string> {
-		return idb(['ui', 'key', '--udid', this.udid, String(hidCode)]);
+	async key(hidCode: number): Promise<void> {
+		await idb(['ui', 'key', '--udid', this.udid, String(hidCode)]);
 	}
 
-	button(name: 'HOME' | 'LOCK' | 'SIRI'): Promise<string> {
-		return idb(['ui', 'button', '--udid', this.udid, name]);
+	async button(name: ButtonName): Promise<void> {
+		await idb(['ui', 'button', '--udid', this.udid, name]);
 	}
+}
+
+class CliBackend implements SimulatorBackend {
+	readonly input: InputSink;
+	readonly videoMode = 'h264' as const;
+	readonly videoScale = 1;
+
+	constructor(private readonly udid: string) {
+		this.input = new CliInput(udid);
+	}
+
+	describe(): Promise<ScreenDimensions> {
+		return describeViaCli(this.udid);
+	}
+
+	createVideo(onData: (chunk: Buffer) => void, onExit: (message: string) => void): VideoSource {
+		return new CliVideoStream(this.udid, onData, onExit);
+	}
+
+	dispose(): void {
+		// CLI processes are owned per-video-stream; nothing session-scoped to release.
+	}
+}
+
+/** Which backend a live panel ended up using, for status display. */
+export type BackendKind = 'companion' | 'cli';
+
+export async function listBootedSimulators(
+	preference: BackendPreference = 'auto',
+): Promise<SimulatorTarget[]> {
+	if (preference !== 'cli' && (await isCompanionAvailable())) {
+		try {
+			return await listBootedViaCompanion();
+		} catch {
+			if (preference === 'companion') {
+				throw new Error('idb_companion failed to list targets');
+			}
+			// fall through to CLI in auto mode
+		}
+	}
+	return listBootedViaCli();
+}
+
+/**
+ * Open a backend for a booted simulator. In `auto` mode, prefer the idb
+ * companion gRPC path (low-latency input, framebuffer video) and fall back to
+ * the idb CLI when the companion is unavailable or fails to connect.
+ */
+export async function openBackend(
+	udid: string,
+	preference: BackendPreference = 'auto',
+): Promise<{ backend: SimulatorBackend; kind: BackendKind }> {
+	if (preference !== 'cli' && (await isCompanionAvailable())) {
+		try {
+			const backend = await Companion.open(udid);
+			return { backend, kind: 'companion' };
+		} catch (err) {
+			if (preference === 'companion') {
+				throw err;
+			}
+			// auto: fall back to CLI
+		}
+	}
+	return { backend: new CliBackend(udid), kind: 'cli' };
 }
