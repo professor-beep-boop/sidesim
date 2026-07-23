@@ -7,12 +7,13 @@
 	const statusEl = document.getElementById('status');
 	const deviceLabel = document.getElementById('device-label');
 
-	const BUILD = 'raw4';
+	const BUILD = 'raw6';
 
 	let widthPoints = 0;
 	let heightPoints = 0;
 	let backend = '';
 	let videoMode = '';
+	let livePhases = false;
 
 	let frames = 0;
 	let bytes = 0;
@@ -234,6 +235,7 @@
 			heightPoints = msg.heightPoints;
 			backend = msg.backend || '';
 			videoMode = msg.videoMode || 'h264';
+			livePhases = !!msg.livePhases;
 			rbgaW = msg.rbgaWidth || 0;
 			rbgaH = msg.rbgaHeight || 0;
 			deviceLabel.textContent = `${msg.name} (iOS ${msg.osVersion})`;
@@ -281,29 +283,71 @@
 		};
 	}
 
+	// ---- pointer input ----
+	// livePhases (companion): stream down/move/up so iOS sees real finger
+	// motion — dragging scrolls continuously and flings get native momentum.
+	// Otherwise (CLI): synthesize a tap or swipe on release.
 	let downPos = null;
 	let downTime = 0;
+	let touching = false;
+	let lastMoveAt = 0;
+	const MOVE_INTERVAL_MS = 16; // ~60 Hz cap on streamed move events
 
-	touchLayer.addEventListener('mousedown', (e) => {
+	touchLayer.addEventListener('pointerdown', (e) => {
+		if (!e.isPrimary) {
+			return; // one simulated finger: ignore secondary pointers
+		}
 		touchLayer.focus();
 		downPos = toPoints(e.clientX, e.clientY);
 		downTime = Date.now();
+		if (livePhases) {
+			touching = true;
+			lastMoveAt = 0;
+			touchLayer.setPointerCapture(e.pointerId);
+			vscode.postMessage({ type: 'touch', phase: 'down', x: downPos.x, y: downPos.y });
+		}
 	});
 
-	touchLayer.addEventListener('mouseup', (e) => {
-		if (!downPos) {
+	touchLayer.addEventListener('pointermove', (e) => {
+		if (!e.isPrimary || !livePhases || !touching) {
+			return;
+		}
+		const now = performance.now();
+		if (now - lastMoveAt < MOVE_INTERVAL_MS) {
+			return; // thinned; the next move (or the up) carries the position
+		}
+		lastMoveAt = now;
+		const p = toPoints(e.clientX, e.clientY);
+		vscode.postMessage({ type: 'touch', phase: 'move', x: p.x, y: p.y });
+	});
+
+	function endTouch(e) {
+		if (!e.isPrimary || !downPos) {
 			return;
 		}
 		const up = toPoints(e.clientX, e.clientY);
-		const dist = Math.hypot(up.x - downPos.x, up.y - downPos.y);
-		if (dist < 8) {
-			vscode.postMessage({ type: 'tap', x: up.x, y: up.y });
-		} else {
-			const duration = Math.min(Math.max((Date.now() - downTime) / 1000, 0.1), 2);
-			vscode.postMessage({ type: 'swipe', x1: downPos.x, y1: downPos.y, x2: up.x, y2: up.y, duration });
+		if (livePhases) {
+			// 'touching' is the "a down was actually streamed" flag: a press that
+			// began before init must not emit an unmatched up.
+			if (touching) {
+				touching = false;
+				vscode.postMessage({ type: 'touch', phase: 'up', x: up.x, y: up.y });
+			}
+		} else if (e.type !== 'pointercancel') {
+			// A cancelled gesture aborts; only a real release taps/swipes.
+			const dist = Math.hypot(up.x - downPos.x, up.y - downPos.y);
+			if (dist < 8) {
+				vscode.postMessage({ type: 'tap', x: up.x, y: up.y });
+			} else {
+				const duration = Math.min(Math.max((Date.now() - downTime) / 1000, 0.1), 2);
+				vscode.postMessage({ type: 'swipe', x1: downPos.x, y1: downPos.y, x2: up.x, y2: up.y, duration });
+			}
 		}
 		downPos = null;
-	});
+	}
+
+	touchLayer.addEventListener('pointerup', endTouch);
+	touchLayer.addEventListener('pointercancel', endTouch);
 
 	const KEY_CODES = {
 		Enter: 40, Backspace: 42, Tab: 43, Escape: 41,

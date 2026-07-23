@@ -6,6 +6,7 @@ import {
 	InputSink,
 	VideoSource,
 	ButtonName,
+	TouchPhase,
 	BackendPreference,
 } from './types';
 import { Companion, isCompanionAvailable, listBootedViaCompanion } from './companion';
@@ -18,6 +19,7 @@ export {
 	VideoSource,
 	VideoMode,
 	ButtonName,
+	TouchPhase,
 	BackendPreference,
 } from './types';
 
@@ -104,6 +106,8 @@ class CliVideoStream implements VideoSource {
 
 /** Input backed by one `idb ui …` process per event (~0.5s latency each). */
 class CliInput implements InputSink {
+	private touchStart: { x: number; y: number; at: number } | undefined;
+
 	constructor(private readonly udid: string) {}
 
 	async tap(x: number, y: number): Promise<void> {
@@ -117,6 +121,33 @@ class CliInput implements InputSink {
 			String(Math.round(x2)), String(Math.round(y2)),
 			'--duration', durationSec.toFixed(2),
 		]);
+	}
+
+	/**
+	 * The CLI can't stream live phases (one process per event, ~0.5s each).
+	 * Synthesize: remember 'down', ignore 'move', emit a tap or swipe on 'up'.
+	 */
+	async touch(phase: TouchPhase, x: number, y: number): Promise<void> {
+		if (phase === 'down') {
+			this.touchStart = { x, y, at: Date.now() };
+			return;
+		}
+		if (phase !== 'up' || !this.touchStart) {
+			return;
+		}
+		const start = this.touchStart;
+		this.touchStart = undefined;
+		if (Math.hypot(x - start.x, y - start.y) < 8) {
+			await this.tap(x, y);
+		} else {
+			const duration = Math.min(Math.max((Date.now() - start.at) / 1000, 0.1), 2);
+			await this.swipe(start.x, start.y, x, y, duration);
+		}
+	}
+
+	async cancelTouch(): Promise<void> {
+		// Nothing was injected yet (effects happen on 'up'); just forget the gesture.
+		this.touchStart = undefined;
 	}
 
 	async text(value: string): Promise<void> {
@@ -134,6 +165,7 @@ class CliInput implements InputSink {
 
 class CliBackend implements SimulatorBackend {
 	readonly input: InputSink;
+	readonly livePhases = false;
 	readonly videoMode = 'h264' as const;
 	readonly videoScale = 1;
 

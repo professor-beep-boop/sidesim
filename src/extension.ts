@@ -149,12 +149,15 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 						osVersion: target.osVersion,
 						backend: kind,
 						videoMode: backend.videoMode,
+						livePhases: backend.livePhases,
 						rbgaWidth,
 						rbgaHeight,
 					});
 					// 'ready' fires again if the webview reloads (crash recovery,
-					// Developer: Reload Webviews). Restart rather than double-start.
+					// Developer: Reload Webviews). Restart rather than double-start,
+					// and release any touch the old webview left mid-drag.
 					if (streamStarted) {
+						await input.cancelTouch();
 						stream.stop();
 						stream = newStream();
 					}
@@ -172,6 +175,9 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 					break;
 				case 'tap':
 					await input.tap(msg.x, msg.y);
+					break;
+				case 'touch':
+					await input.touch(msg.phase, msg.x, msg.y);
 					break;
 				case 'swipe':
 					await input.swipe(msg.x1, msg.y1, msg.x2, msg.y2, msg.duration);

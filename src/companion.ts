@@ -10,6 +10,7 @@ import {
 	VideoSource,
 	VideoMode,
 	ButtonName,
+	TouchPhase,
 } from './types';
 
 const PROTO_PATH = path.join(__dirname, '..', 'proto', 'idb.proto');
@@ -73,11 +74,13 @@ export class Companion implements SimulatorBackend {
 	private proc: ChildProcess | undefined;
 	private client: CompanionService | undefined;
 	private hidCall: grpc.ClientWritableStream<unknown> | undefined;
+	private pendingTouch: { x: number; y: number } | undefined;
 	private videoCall: grpc.ClientDuplexStream<unknown, unknown> | undefined;
 	private disposed = false;
 	private exitNotified = false;
 	private onExit: ((message: string) => void) | undefined;
 
+	readonly livePhases = true;
 	readonly videoMode: VideoMode = 'rbga';
 	readonly videoScale = VIDEO_SCALE;
 
@@ -93,6 +96,11 @@ export class Companion implements SimulatorBackend {
 		return {
 			tap: (x, y) => this.tap(x, y),
 			swipe: (x1, y1, x2, y2, duration) => this.swipe(x1, y1, x2, y2, duration),
+			touch: (phase, x, y) => this.touch(phase, x, y),
+			cancelTouch: () => {
+				this.releasePendingTouch();
+				return Promise.resolve();
+			},
 			text: (t) => this.text(t),
 			key: (code) => this.key(code),
 			button: (name) => this.button(name),
@@ -129,6 +137,10 @@ export class Companion implements SimulatorBackend {
 		}
 		this.disposed = true;
 		this.stopVideo();
+		// HID events already injected outlive the companion process — release a
+		// mid-drag touch or the simulator keeps a phantom finger down after the
+		// panel closes.
+		this.releasePendingTouch();
 		try {
 			this.hidCall?.end();
 		} catch {
@@ -288,6 +300,36 @@ export class Companion implements SimulatorBackend {
 		return Promise.resolve();
 	}
 
+	/**
+	 * Live touch phase. A 'move' is another down-state event at the new point —
+	 * CoreSimulator's HID treats successive downs as motion of the same touch
+	 * (FBSimulatorControl synthesizes swipes exactly this way). Streaming real
+	 * pointer timing lets iOS compute fling velocity itself.
+	 */
+	private touch(phase: TouchPhase, x: number, y: number): Promise<void> {
+		const point = { x: Math.round(x), y: Math.round(y) };
+		if (phase === 'up') {
+			this.pendingTouch = undefined;
+			// The up MUST land or the simulator keeps a finger planted; a dropped
+			// thinned move is harmless, a dropped up is not.
+			this.writeHidReliable({ press: { action: { touch: { point } }, direction: HID_UP } });
+		} else {
+			this.pendingTouch = point;
+			this.writeHid({ press: { action: { touch: { point } }, direction: HID_DOWN } });
+		}
+		return Promise.resolve();
+	}
+
+	/** Synthetic up at the last known touch position, if a touch is in flight. */
+	private releasePendingTouch(): void {
+		const point = this.pendingTouch;
+		if (!point) {
+			return;
+		}
+		this.pendingTouch = undefined;
+		this.writeHidReliable({ press: { action: { touch: { point } }, direction: HID_UP } });
+	}
+
 	private swipe(x1: number, y1: number, x2: number, y2: number, durationSec: number): Promise<void> {
 		this.writeHid({
 			swipe: {
@@ -337,6 +379,23 @@ export class Companion implements SimulatorBackend {
 			// let the next one re-open the stream.
 			this.hidCall = undefined;
 			void err;
+		}
+	}
+
+	/**
+	 * Like writeHid, but retries once on a fresh stream. For events that must
+	 * not be silently dropped (touch releases).
+	 */
+	private writeHidReliable(event: unknown): void {
+		try {
+			this.hidStream().write(event);
+		} catch {
+			this.hidCall = undefined;
+			try {
+				this.hidStream().write(event);
+			} catch {
+				this.hidCall = undefined;
+			}
 		}
 	}
 
