@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import FBControlCore
 import FBSimulatorControl
 
@@ -107,8 +108,11 @@ final class SimSession {
 	var streamFps: Int?
 	/// Current sink for frames; read/written only on videoQueue.
 	var video: VideoContext?
+	var indigo: FBSimulatorIndigoHID?
 	/// Set while a touch is down so an interrupted session can release it.
 	var pendingTouch: (x: Double, y: Double)?
+	/// Set while a two-finger gesture is down, for release on interruption.
+	var pendingTouch2: (ax: Double, ay: Double, bx: Double, by: Double)?
 
 	init(simulator: FBSimulator) {
 		self.simulator = simulator
@@ -134,10 +138,74 @@ final class SimSession {
 		return connected
 	}
 
+	/// Builds raw Indigo touch messages. The public FBSimulatorHID API is
+	/// single-contact; two-finger gestures require patching a second contact
+	/// into the raw message and sending it directly.
+	func indigoBuilder() throws -> FBSimulatorIndigoHID {
+		if let indigo {
+			return indigo
+		}
+		let i = try FBSimulatorIndigoHID.simulatorKitHID()
+		indigo = i
+		return i
+	}
+
+	/// Send one two-finger phase. The single-touch Indigo message already
+	/// carries two contact records at the same point; we overwrite the second
+	/// record's coordinates so iOS sees two distinct fingers. Sent raw via the
+	/// private `sendIndigoMessageData:` since the public API has no multi-touch.
+	func sendTwoFinger(phase: String, ax: Double, ay: Double, bx: Double, by: Double) throws {
+		let hid = try connectHID()
+		let indigo = try indigoBuilder()
+		guard let screen = simulator.screenInfo, screen.scale > 0 else {
+			throw RequestError("no screen info")
+		}
+		// Coordinates arrive in points; scale to pixels. The Indigo message is
+		// built at the pixel-sized surface (matching what the framework itself
+		// uses) — a points-sized surface breaks multi-touch interpretation.
+		let scale = Double(screen.scale)
+		let size = CGSize(width: Double(screen.widthPixels), height: Double(screen.heightPixels))
+		let axp = ax * scale, ayp = ay * scale, bxp = bx * scale, byp = by * scale
+		let direction: FBSimulatorHIDDirection = phase == "up" ? .up : .down
+		var msg = indigo.touchScreenSize(size, direction: direction, x: axp, y: ayp)
+		patchSecondContact(&msg, nax: axp / size.width, nbx: bxp / size.width, nby: byp / size.height)
+		_ = hid.perform(Selector(("sendIndigoMessageData:")), with: msg)
+	}
+
+	/// Overwrite the second contact's (x, y) doubles. The message is a 32-byte
+	/// header + two equal-sized contact payloads; the builder wrote finger A into
+	/// both, with each payload's xRatio at payload-offset 28 and yRatio at 36.
+	/// We compute the second payload's offset directly (a value-scan would
+	/// mis-hit zero-valued header fields when finger A sits at the left edge,
+	/// nax≈0) and guard on the pre-patch value to catch any format drift.
+	private func patchSecondContact(_ msg: inout Data, nax: Double, nbx: Double, nby: Double) {
+		let count = msg.count
+		guard count >= 320, (count - 32) % 2 == 0 else { return }
+		let payloadSize = (count - 32) / 2
+		let xOff = 32 + payloadSize + 28 // second contact's xRatio
+		guard xOff + 16 <= count else { return }
+		msg.withUnsafeMutableBytes { raw in
+			guard let base = raw.baseAddress else { return }
+			var cur = 0.0
+			memcpy(&cur, base.advanced(by: xOff), 8)
+			// Finger A was written into both contacts, so contact two's x must
+			// currently equal finger A's normalized x — otherwise the layout
+			// shifted and blind patching would corrupt the message.
+			guard abs(cur - nax) < 1e-9 else { return }
+			var x = nbx, y = nby
+			memcpy(base.advanced(by: xOff), &x, 8)
+			memcpy(base.advanced(by: xOff + 8), &y, 8)
+		}
+	}
+
 	func teardown() {
 		if let touch = pendingTouch, let hid {
 			pendingTouch = nil
 			_ = try? waitFor(hid.sendTouch(withType: .up, x: touch.x, y: touch.y), timeout: 5)
+		}
+		if let t2 = pendingTouch2 {
+			pendingTouch2 = nil
+			try? sendTwoFinger(phase: "up", ax: t2.ax, ay: t2.ay, bx: t2.bx, by: t2.by)
 		}
 		stopVideo()
 		if let stream {
@@ -246,6 +314,15 @@ final class Sidecar {
 			let direction: FBSimulatorHIDDirection = phase == "up" ? .up : .down
 			try waitFor(hid.sendTouch(withType: direction, x: x, y: y))
 			s.pendingTouch = phase == "up" ? nil : (x, y)
+			return ["ok": true]
+
+		case "touch2":
+			let s = try session(req.string("udid"))
+			let phase = try req.string("phase")
+			let ax = try req.double("ax"), ay = try req.double("ay")
+			let bx = try req.double("bx"), by = try req.double("by")
+			try s.sendTwoFinger(phase: phase, ax: ax, ay: ay, bx: bx, by: by)
+			s.pendingTouch2 = phase == "up" ? nil : (ax, ay, bx, by)
 			return ["ok": true]
 
 		case "swipe":

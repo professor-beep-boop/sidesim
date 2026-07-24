@@ -8,6 +8,8 @@ simulator with click/tap and keyboard input, streamed into a webview.
 - **iOS Simulator: Open Panel** command — mirrors a booted simulator and
   forwards clicks, drags, and keystrokes into it.
 - Two connection backends (see below).
+- **Two-finger pinch & rotate** on the `sidecar` backend: hold **⌥ Option** and drag (two fingers symmetric about the screen centre, like the iOS Simulator app).
+
 ### Video pipeline
 
 The `companion` backend streams **raw BGRA frames** (idb `RBGA` format) and

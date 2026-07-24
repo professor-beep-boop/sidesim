@@ -7,13 +7,14 @@
 	const statusEl = document.getElementById('status');
 	const deviceLabel = document.getElementById('device-label');
 
-	const BUILD = 'sc2';
+	const BUILD = 'sc3';
 
 	let widthPoints = 0;
 	let heightPoints = 0;
 	let backend = '';
 	let videoMode = '';
 	let livePhases = false;
+	let multiTouch = false;
 
 	let frames = 0;
 	let bytes = 0;
@@ -236,6 +237,7 @@
 			backend = msg.backend || '';
 			videoMode = msg.videoMode || 'h264';
 			livePhases = !!msg.livePhases;
+			multiTouch = !!msg.multiTouch;
 			rbgaW = msg.rbgaWidth || 0;
 			rbgaH = msg.rbgaHeight || 0;
 			deviceLabel.textContent = `${msg.name} (iOS ${msg.osVersion})`;
@@ -293,6 +295,14 @@
 	let lastMoveAt = 0;
 	const MOVE_INTERVAL_MS = 16; // ~60 Hz cap on streamed move events
 
+	// Two-finger pinch/rotate: hold Alt and drag (the iOS Simulator convention).
+	// Finger A follows the cursor; finger B mirrors it across the screen centre,
+	// so spreading zooms and twisting rotates.
+	let pinching = false;
+	function mirror(p) {
+		return { x: widthPoints - p.x, y: heightPoints - p.y };
+	}
+
 	touchLayer.addEventListener('pointerdown', (e) => {
 		if (!e.isPrimary) {
 			return; // one simulated finger: ignore secondary pointers
@@ -300,7 +310,13 @@
 		touchLayer.focus();
 		downPos = toPoints(e.clientX, e.clientY);
 		downTime = Date.now();
-		if (livePhases) {
+		if (multiTouch && e.altKey) {
+			pinching = true;
+			lastMoveAt = 0;
+			touchLayer.setPointerCapture(e.pointerId);
+			const b = mirror(downPos);
+			vscode.postMessage({ type: 'touch2', phase: 'down', ax: downPos.x, ay: downPos.y, bx: b.x, by: b.y });
+		} else if (livePhases) {
 			touching = true;
 			lastMoveAt = 0;
 			touchLayer.setPointerCapture(e.pointerId);
@@ -309,12 +325,22 @@
 	});
 
 	touchLayer.addEventListener('pointermove', (e) => {
-		if (!e.isPrimary || !livePhases || !touching) {
+		if (!e.isPrimary) {
 			return;
 		}
 		const now = performance.now();
 		if (now - lastMoveAt < MOVE_INTERVAL_MS) {
 			return; // thinned; the next move (or the up) carries the position
+		}
+		if (pinching) {
+			lastMoveAt = now;
+			const a = toPoints(e.clientX, e.clientY);
+			const b = mirror(a);
+			vscode.postMessage({ type: 'touch2', phase: 'move', ax: a.x, ay: a.y, bx: b.x, by: b.y });
+			return;
+		}
+		if (!livePhases || !touching) {
+			return;
 		}
 		lastMoveAt = now;
 		const p = toPoints(e.clientX, e.clientY);
@@ -326,7 +352,11 @@
 			return;
 		}
 		const up = toPoints(e.clientX, e.clientY);
-		if (livePhases) {
+		if (pinching) {
+			pinching = false;
+			const b = mirror(up);
+			vscode.postMessage({ type: 'touch2', phase: 'up', ax: up.x, ay: up.y, bx: b.x, by: b.y });
+		} else if (livePhases) {
 			// 'touching' is the "a down was actually streamed" flag: a press that
 			// began before init must not emit an unmatched up.
 			if (touching) {
@@ -382,7 +412,8 @@
 		const drop = dropped > 0 ? ` · dropped ${dropped}` : '';
 		const kind = payloadKind ? ` · ${payloadKind}` : '';
 		const path = renderPath ? ` · ${renderPath}` : '';
-		statusEl.textContent = `[${BUILD}] ${frames} fps · ${mb} MB/s${via}${mode}${rms}${drop}${kind}${path}`;
+		const pinch = multiTouch ? ' · ⌥ pinch' : '';
+		statusEl.textContent = `[${BUILD}] ${frames} fps · ${mb} MB/s${via}${mode}${rms}${drop}${kind}${path}${pinch}`;
 		frames = 0;
 		bytes = 0;
 		renderMsTotal = 0;

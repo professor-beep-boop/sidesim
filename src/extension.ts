@@ -160,6 +160,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 						backend: kind,
 						videoMode: backend.videoMode,
 						livePhases: backend.livePhases,
+						multiTouch: backend.multiTouch,
 						rbgaWidth,
 						rbgaHeight,
 					});
@@ -185,6 +186,9 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 					break;
 				case 'tap':
 					await input.tap(msg.x, msg.y);
+					break;
+				case 'touch2':
+					await input.touch2(msg.phase, msg.ax, msg.ay, msg.bx, msg.by);
 					break;
 				case 'touch':
 					await input.touch(msg.phase, msg.x, msg.y);

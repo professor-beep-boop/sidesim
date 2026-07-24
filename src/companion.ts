@@ -81,6 +81,7 @@ export class Companion implements SimulatorBackend {
 	private onExit: ((message: string) => void) | undefined;
 
 	readonly livePhases = true;
+	readonly multiTouch = false;
 	readonly videoMode: VideoMode = 'rbga';
 	readonly videoScale = VIDEO_SCALE;
 
@@ -97,6 +98,7 @@ export class Companion implements SimulatorBackend {
 			tap: (x, y) => this.tap(x, y),
 			swipe: (x1, y1, x2, y2, duration) => this.swipe(x1, y1, x2, y2, duration),
 			touch: (phase, x, y) => this.touch(phase, x, y),
+			touch2: () => Promise.resolve(),
 			cancelTouch: () => {
 				this.releasePendingTouch();
 				return Promise.resolve();

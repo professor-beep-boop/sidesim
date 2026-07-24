@@ -55,6 +55,7 @@ stdout carries two interleaved message kinds, demuxed by first byte:
 | `stopVideo` | `udid` | |
 | `tap` | `udid, x, y` | points |
 | `touch` | `udid, phase (down\|move\|up), x, y` | live phases; a `move` is a down-state event |
+| `touch2` | `udid, phase, ax, ay, bx, by` | two-finger gesture (pinch/rotate); see note |
 | `swipe` | `udid, x1, y1, x2, y2, durationSec` | interpolated at 60 steps/s |
 | `key` | `udid, code` | USB HID usage code, down+up |
 | `text` | `udid, value` | ASCII typed via HID keyboard |
@@ -71,5 +72,11 @@ stopped, HID disconnected.
 - The frameworks bundle-load Xcode private frameworks; a major Xcode update
   can break them — the same risk `idb_companion` itself carries, and the
   extension falls back to the companion/CLI backends if the sidecar dies.
-- Two-finger gestures (pinch/rotate) need a hand-built Indigo message (the
-  public FBSimulatorHID API is single-touch); tracked upstream in the epic.
+## Two-finger gestures
+
+The public `FBSimulatorHID` API is single-touch, so `touch2` builds the raw
+Indigo message directly: the single-touch message already carries two contact
+records at the same point, so we overwrite the second record's coordinates and
+send it via the private `sendIndigoMessageData:`. Coordinates are normalized
+against the **pixel**-sized surface (a points-sized surface breaks multi-touch).
+Verified live: a pinch zooms Maps to a globe view.

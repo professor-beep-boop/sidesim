@@ -146,6 +146,10 @@ class CliInput implements InputSink {
 		}
 	}
 
+	async touch2(): Promise<void> {
+		// CLI backend has no multi-touch.
+	}
+
 	async cancelTouch(): Promise<void> {
 		// Nothing was injected yet (effects happen on 'up'); just forget the gesture.
 		this.touchStart = undefined;
@@ -167,6 +171,7 @@ class CliInput implements InputSink {
 class CliBackend implements SimulatorBackend {
 	readonly input: InputSink;
 	readonly livePhases = false;
+	readonly multiTouch = false;
 	readonly videoMode = 'h264' as const;
 	readonly videoScale = 1;
 

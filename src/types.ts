@@ -27,6 +27,11 @@ export interface InputSink {
 	 */
 	touch(phase: TouchPhase, x: number, y: number): Promise<void>;
 	/**
+	 * One step of a two-finger gesture (pinch/rotate). Only backends that report
+	 * {@link SimulatorBackend.multiTouch} support this; others no-op.
+	 */
+	touch2(phase: TouchPhase, ax: number, ay: number, bx: number, by: number): Promise<void>;
+	/**
 	 * Release any in-flight touch (synthetic 'up' at its last position). Called
 	 * when the gesture source vanishes mid-drag — webview reload, panel close —
 	 * so the simulator is never left with a phantom finger held down.
@@ -65,6 +70,8 @@ export interface SimulatorBackend {
 	 * otherwise it falls back to synthesized tap/swipe on mouse-up.
 	 */
 	readonly livePhases: boolean;
+	/** True when {@link InputSink.touch2} drives real two-finger gestures. */
+	readonly multiTouch: boolean;
 	/** How frames from {@link createVideo} are encoded. */
 	readonly videoMode: VideoMode;
 	/** Fraction of native resolution the video is streamed at (rbga only). */

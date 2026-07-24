@@ -327,11 +327,13 @@ export function isSidecarAvailable(): boolean {
  */
 export class SidecarBackend implements SimulatorBackend {
 	readonly livePhases = true;
+	readonly multiTouch = true;
 	readonly videoMode: VideoMode = 'h264';
 
 	private streamCounter = 0;
 	private activeStreamId = 0;
 	private lastTouch: { x: number; y: number } | undefined;
+	private lastTouch2: { ax: number; ay: number; bx: number; by: number } | undefined;
 	private video: { onData: (chunk: Buffer) => void; onExit: (message: string) => void; active: boolean } | undefined;
 	private disposed = false;
 	private restarts = 0;
@@ -479,11 +481,21 @@ export class SidecarBackend implements SimulatorBackend {
 				this.proc.send('touch', { udid: this.udid, phase, x, y });
 				return Promise.resolve();
 			},
+			touch2: (phase: TouchPhase, ax, ay, bx, by) => {
+				this.lastTouch2 = phase === 'up' ? undefined : { ax, ay, bx, by };
+				this.proc.send('touch2', { udid: this.udid, phase, ax, ay, bx, by });
+				return Promise.resolve();
+			},
 			cancelTouch: () => {
 				const last = this.lastTouch;
 				this.lastTouch = undefined;
 				if (last) {
 					this.proc.send('touch', { udid: this.udid, phase: 'up', x: last.x, y: last.y });
+				}
+				const last2 = this.lastTouch2;
+				this.lastTouch2 = undefined;
+				if (last2) {
+					this.proc.send('touch2', { udid: this.udid, phase: 'up', ...last2 });
 				}
 				return Promise.resolve();
 			},
