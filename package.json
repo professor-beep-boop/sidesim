@@ -61,12 +61,14 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run build:sidecar && npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "build:sidecar": "bash scripts/build-sidecar.sh",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/node": "20.x",
@@ -76,10 +78,16 @@
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.3.9",
     "eslint": "^8.57.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "@vscode/vsce": "^3.0.0"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1"
+  },
+  "publisher": "jbmorgan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jbmorgan/vscodesim.git"
   }
 }

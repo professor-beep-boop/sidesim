@@ -52,10 +52,33 @@ The `companion` backend launches one `idb_companion` per open panel
 entry is delegated to `idb ui text` on both backends so character→keycode
 mapping stays correct.
 
-## Running
+## Running (development)
 
 1. `npm install`
-2. Open this folder in VS Code
-3. Press `F5` to launch an Extension Development Host
-4. Boot a simulator, then run **iOS Simulator: Open Panel** from the Command
+2. `cd sidecar && swift build` (builds the native sidecar for the `sidecar`
+   backend; skip it to develop against the `companion`/`cli` backends)
+3. Open this folder in VS Code
+4. Press `F5` to launch an Extension Development Host
+5. Boot a simulator, then run **iOS Simulator: Open Panel** from the Command
    Palette
+
+## Packaging & installing
+
+```bash
+npm run package        # builds a universal simhelper + produces vscodesim-*.vsix
+code --install-extension vscodesim-*.vsix
+```
+
+`npm run package` compiles the extension, builds `sidecar/simhelper` as a
+**universal** binary (arm64 + x86_64), ad-hoc signs it, stages it at
+`bin/simhelper`, and bundles everything into the VSIX.
+
+**Prerequisite on the target machine:** `brew install idb-companion`. The
+sidecar is **not** bundled with the FBSimulatorControl frameworks — it links
+against the Homebrew bottle at runtime (rpaths cover both `/opt/homebrew` and
+`/usr/local`). Without it, the extension falls back to the `companion`/`cli`
+backends. `pipx install fb-idb` additionally enables the `cli` backend.
+
+If you download a prebuilt VSIX (rather than building locally), macOS may
+quarantine the sidecar binary; clear it with
+`xattr -dr com.apple.quarantine <installed-extension-path>/bin/simhelper`.

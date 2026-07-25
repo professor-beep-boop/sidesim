@@ -72,7 +72,14 @@ export function findSidecarBinary(): string | undefined {
 	if (override && fs.existsSync(override)) {
 		return override;
 	}
-	for (const rel of ['../sidecar/.build/release/simhelper', '../sidecar/.build/debug/simhelper']) {
+	// In-repo dev builds win when present (a fresh `swift build` shouldn't be
+	// shadowed by a stale staged binary); the packaged VSIX has no .build and
+	// falls through to bin/simhelper (sibling of out/).
+	for (const rel of [
+		'../sidecar/.build/release/simhelper',
+		'../sidecar/.build/debug/simhelper',
+		'../bin/simhelper',
+	]) {
 		const p = path.join(__dirname, rel);
 		if (fs.existsSync(p)) {
 			return p;

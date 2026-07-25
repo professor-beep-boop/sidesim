@@ -1,0 +1,26 @@
+# Sources and build inputs — the compiled output (out/) and staged binary
+# (bin/simhelper) are what ship.
+src/**
+sidecar/**
+scripts/**
+proto/README.md
+
+# Dev/CI/tooling
+.claude/**
+.github/**
+.vscode/**
+.vscode-test/**
+.vscode-test.mjs
+.eslintrc.json
+tsconfig.json
+**/*.map
+**/tsconfig.tsbuildinfo
+.gitignore
+.vscodeignore
+
+# Keep in the VSIX (documented here for the next reader):
+#   out/**            compiled extension
+#   bin/simhelper     universal sidecar binary (built by scripts/build-sidecar.sh)
+#   media/*.js,*.css  webview assets
+#   proto/idb.proto   loaded at runtime by the companion backend
+#   README.md, CHANGELOG.md, package.json
