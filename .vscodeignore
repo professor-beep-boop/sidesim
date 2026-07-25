@@ -5,6 +5,11 @@ sidecar/**
 scripts/**
 proto/README.md
 
+# Bundled into out/extension.js by esbuild — not shipped loose.
+node_modules/**
+out/test/**
+esbuild.js
+
 # Dev/CI/tooling
 .claude/**
 .github/**

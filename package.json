@@ -61,14 +61,16 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run build:sidecar && npm run compile",
+    "vscode:prepublish": "npm run build:sidecar && npm run check-types && npm run bundle",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
     "build:sidecar": "bash scripts/build-sidecar.sh",
-    "package": "vsce package"
+    "package": "vsce package",
+    "check-types": "tsc --noEmit -p ./",
+    "bundle": "rm -rf out && node esbuild.js --production"
   },
   "devDependencies": {
     "@types/node": "20.x",
@@ -77,9 +79,10 @@
     "@typescript-eslint/parser": "^7.0.0",
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.3.9",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.1",
     "eslint": "^8.57.0",
-    "typescript": "^5.4.0",
-    "@vscode/vsce": "^3.0.0"
+    "typescript": "^5.4.0"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
