@@ -5,3 +5,6 @@ node_modules
 *.vsix
 sidecar/.build
 bin/
+
+# Self-hosted GitHub Actions runner (binaries + registration state)
+actions-runner/

@@ -1,0 +1,58 @@
+name: Integration (simulator)
+
+# Simulator-in-the-loop tests: list devices, describe, stream live H.264, tap,
+# and two-finger pinch against a REAL booted simulator via the native simhelper
+# sidecar. GitHub-hosted runners can't boot the sidecar's private-framework
+# stack, so this runs ONLY on the self-hosted macOS runner. It is deliberately
+# NOT a required check — when that Mac is offline a PR must still be mergeable
+# on the hosted `test` gate alone; this adds real-hardware signal when it can.
+on:
+  pull_request:
+    paths:
+      - 'sidecar/**'
+      - 'src/sidecar.ts'
+      - 'scripts/integration-sim.js'
+      - '.github/workflows/integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sidecar/**'
+      - 'src/sidecar.ts'
+      - 'scripts/integration-sim.js'
+      - '.github/workflows/integration.yml'
+  workflow_dispatch:
+
+# One integration run at a time: every job here drives the Mac's single shared
+# CoreSimulator device set, so overlapping runs would tap/pinch each other's
+# sims. Queue rather than cancel — a half-finished gesture shouldn't be killed.
+concurrency:
+  group: simulator-integration
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure idb frameworks present
+        run: |
+          brew list idb-companion >/dev/null 2>&1 || {
+            brew tap facebook/fb
+            brew trust --tap facebook/fb
+            brew install idb-companion
+          }
+
+      - name: Install node deps
+        run: npm ci
+
+      - name: Compile extension code
+        run: npm run compile
+
+      - name: Build sidecar (debug)
+        working-directory: sidecar
+        run: swift build
+
+      - name: Simulator integration test
+        run: npm run test:integration

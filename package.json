@@ -71,7 +71,8 @@
     "build:sidecar": "bash scripts/build-sidecar.sh",
     "package": "vsce package",
     "check-types": "tsc --noEmit -p ./",
-    "bundle": "rm -rf out && node esbuild.js --production"
+    "bundle": "rm -rf out && node esbuild.js --production",
+    "test:integration": "node scripts/integration-sim.js"
   },
   "devDependencies": {
     "@types/node": "20.x",
