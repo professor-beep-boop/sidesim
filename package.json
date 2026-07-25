@@ -3,6 +3,7 @@
   "displayName": "vscodesim",
   "description": "",
   "version": "0.0.1",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.90.0"
   },
