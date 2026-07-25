@@ -8,8 +8,9 @@ that the Homebrew `idb-companion` bottle ships, so nothing private is built
 from source.
 
 ```bash
-brew install idb-companion   # provides the frameworks
+brew install facebook/fb/idb-companion   # provides the frameworks
 swift build                  # builds .build/debug/simhelper
+swift test                   # unit tests for the framework-free pure logic
 ```
 
 Override the framework location with `SIMHELPER_FB_FRAMEWORKS` (default

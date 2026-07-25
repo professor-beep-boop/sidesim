@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import SimHelperCore
 import FBControlCore
 import FBSimulatorControl
 
@@ -53,18 +54,8 @@ final class VideoContext {
 		}
 		if encoder == nil {
 			// The framebuffer pads rows AND row count (e.g. 1206x2622 arrives as
-			// 4864-byte rows x 2624); search nearby padded heights for a stride
-			// that fits.
-			guard height > 0 else { return }
-			var stride = 0
-			for paddedHeight in height...(height + 64) where data.count % paddedHeight == 0 {
-				let s = data.count / paddedHeight
-				if s % 4 == 0 && s >= width * 4 && s < width * 4 + 256 {
-					stride = s
-					break
-				}
-			}
-			guard stride > 0 else {
+			// 4864-byte rows x 2624). deriveStride handles the search.
+			guard let stride = deriveStride(frameByteCount: data.count, width: width, height: height) else {
 				// Report once, but keep the context alive: rotation produces
 				// frames we can't size against the start dimensions, and rotating
 				// back must recover.
@@ -179,11 +170,7 @@ final class SimSession {
 	/// mis-hit zero-valued header fields when finger A sits at the left edge,
 	/// nax≈0) and guard on the pre-patch value to catch any format drift.
 	private func patchSecondContact(_ msg: inout Data, nax: Double, nbx: Double, nby: Double) {
-		let count = msg.count
-		guard count >= 320, (count - 32) % 2 == 0 else { return }
-		let payloadSize = (count - 32) / 2
-		let xOff = 32 + payloadSize + 28 // second contact's xRatio
-		guard xOff + 16 <= count else { return }
+		guard let xOff = secondContactXOffset(messageByteCount: msg.count) else { return }
 		msg.withUnsafeMutableBytes { raw in
 			guard let base = raw.baseAddress else { return }
 			var cur = 0.0

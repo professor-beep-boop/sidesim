@@ -31,7 +31,7 @@ smearing above.
 - macOS with Xcode and at least one **booted** iOS Simulator.
 - [`idb` / `idb_companion`](https://fbidb.io) on `PATH`:
   ```bash
-  brew install idb-companion
+  brew install facebook/fb/idb-companion
   pipx install fb-idb   # provides the `idb` CLI
   ```
 
@@ -73,7 +73,7 @@ code --install-extension vscodesim-*.vsix
 **universal** binary (arm64 + x86_64), ad-hoc signs it, stages it at
 `bin/simhelper`, and bundles everything into the VSIX.
 
-**Prerequisite on the target machine:** `brew install idb-companion`. The
+**Prerequisite on the target machine:** `brew install facebook/fb/idb-companion`. The
 sidecar is **not** bundled with the FBSimulatorControl frameworks — it links
 against the Homebrew bottle at runtime (rpaths cover both `/opt/homebrew` and
 `/usr/local`). Without it, the extension falls back to the `companion`/`cli`

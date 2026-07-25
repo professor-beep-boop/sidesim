@@ -15,8 +15,12 @@ let package = Package(
 	name: "simhelper",
 	platforms: [.macOS(.v13)],
 	targets: [
+		// Framework-free pure logic (stride derivation, HID keymap, Indigo
+		// offset math) so it can be unit-tested without FBSimulatorControl.
+		.target(name: "SimHelperCore", path: "Sources/SimHelperCore"),
 		.executableTarget(
 			name: "simhelper",
+			dependencies: ["SimHelperCore"],
 			path: "Sources/simhelper",
 			swiftSettings: [
 				.unsafeFlags(["-F", fwPath]),
@@ -34,5 +38,6 @@ let package = Package(
 				]),
 			]
 		),
+		.testTarget(name: "SimHelperCoreTests", dependencies: ["SimHelperCore"], path: "Tests/SimHelperCoreTests"),
 	]
 )

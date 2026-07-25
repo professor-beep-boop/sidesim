@@ -1,0 +1,39 @@
+name: Sidecar
+
+# The Swift sidecar can't build on the ubuntu CI runner (needs the Swift
+# toolchain + the FBSimulatorControl frameworks from idb-companion), so it gets
+# its own macOS job — gated to changes that actually touch it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sidecar/**'
+      - 'src/sidecar.ts'
+      - '.github/workflows/sidecar.yml'
+  pull_request:
+    paths:
+      - 'sidecar/**'
+      - 'src/sidecar.ts'
+      - '.github/workflows/sidecar.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install idb-companion (FBSimulatorControl frameworks)
+        run: |
+          brew tap facebook/fb
+          # Homebrew gates third-party taps behind explicit trust in CI
+          # ($HOMEBREW_REQUIRE_TAP_TRUST is set on the runner).
+          brew trust --tap facebook/fb
+          brew install idb-companion
+      - name: Build
+        run: swift build
+        working-directory: sidecar
+      - name: Unit tests
+        run: swift test
+        working-directory: sidecar
+      # Simulator-in-the-loop integration (listDevices/startVideo against a
+      # booted sim) needs a self-hosted runner with a booted simulator and is
+      # intentionally out of scope for this hosted job.
