@@ -64,6 +64,37 @@ function sandboxedSpawnArgs(binary: string): { cmd: string; args: string[] } {
 }
 
 /**
+ * Homebrew locations simhelper's rpath searches for idb's FBSimulatorControl
+ * frameworks (Apple Silicon prefix, then Intel). These ship with
+ * `brew install idb-companion` from the facebook/fb tap.
+ */
+const IDB_FRAMEWORK_DIRS = [
+	'/opt/homebrew/opt/idb-companion/Frameworks',
+	'/usr/local/opt/idb-companion/Frameworks',
+];
+
+/**
+ * Whether idb's frameworks are installed. simhelper links FBSimulatorControl /
+ * FBControlCore via @rpath; without them it dies at launch with a dyld error
+ * that surfaces as a confusing "no simulator" fallback. The bundled binary is
+ * always present in an installed VSIX, so this — not the binary — is the real
+ * prerequisite a fresh machine is missing.
+ */
+export function idbFrameworksAvailable(): boolean {
+	// simhelper hard-links BOTH frameworks via @rpath; require both present so a
+	// partial/corrupt keg doesn't pass the check and then dyld-fail at launch.
+	return IDB_FRAMEWORK_DIRS.some(
+		(dir) =>
+			fs.existsSync(path.join(dir, 'FBSimulatorControl.framework')) &&
+			fs.existsSync(path.join(dir, 'FBControlCore.framework')),
+	);
+}
+
+/** One-liner that installs idb-companion (and its frameworks) via Homebrew. */
+export const IDB_INSTALL_COMMAND =
+	'brew tap facebook/fb && brew trust --tap facebook/fb && brew install idb-companion';
+
+/**
  * Locate the simhelper binary: explicit override, then the in-repo build
  * (dev flow), then PATH.
  */

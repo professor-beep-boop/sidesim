@@ -13,6 +13,9 @@ esbuild.js
 # Dev/CI/tooling
 .claude/**
 .github/**
+# Self-hosted runner install — holds .credentials / .credentials_rsaparams
+# (the runner's registration secret + private key). MUST never ship in the VSIX.
+actions-runner/**
 .vscode/**
 .vscode-test/**
 .vscode-test.mjs

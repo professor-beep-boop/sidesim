@@ -5,6 +5,7 @@ import {
 	SimulatorTarget,
 	BackendPreference,
 } from './simulator';
+import { idbFrameworksAvailable, IDB_INSTALL_COMMAND } from './sidecar';
 import { setLogSink } from './log';
 
 function backendPreference(): BackendPreference {
@@ -22,12 +23,54 @@ export function activate(context: vscode.ExtensionContext) {
 		channel,
 		vscode.commands.registerCommand('vscodesim.openSimulator', async () => {
 			try {
+				if (!(await ensurePrerequisites())) {
+					return;
+				}
 				await openSimulatorPanel(context);
 			} catch (err) {
 				vscode.window.showErrorMessage(`iOS Simulator: ${err instanceof Error ? err.message : err}`);
 			}
 		}),
 	);
+}
+
+/**
+ * Verify the host can actually mirror a simulator before we try — and if not,
+ * tell the user exactly how to fix it. Every backend (sidecar, companion, cli)
+ * ultimately drives CoreSimulator through idb's frameworks, so a missing
+ * idb-companion is the one prerequisite that leaves nothing working; without
+ * this the sidecar just dies at launch and the user sees a baffling
+ * "no booted simulator" fallback. Returns false if the panel should not open.
+ */
+async function ensurePrerequisites(): Promise<boolean> {
+	if (process.platform !== 'darwin') {
+		void vscode.window.showErrorMessage(
+			'iOS Simulator requires macOS with Xcode and the iOS Simulator installed.',
+		);
+		return false;
+	}
+	// An explicit binary override means the user is running a custom/self-contained
+	// simhelper whose frameworks may live elsewhere — trust it, skip the probe.
+	if (!idbFrameworksAvailable() && !process.env.VSCODESIM_SIMHELPER) {
+		const COPY = 'Copy Install Command';
+		const DOCS = 'Open idb Docs';
+		const choice = await vscode.window.showErrorMessage(
+			"iOS Simulator needs Meta's idb (idb-companion) for live video and input. " +
+				'Install it with Homebrew, then open the simulator again.',
+			COPY,
+			DOCS,
+		);
+		if (choice === COPY) {
+			await vscode.env.clipboard.writeText(IDB_INSTALL_COMMAND);
+			void vscode.window.showInformationMessage(
+				'Install command copied — run it in a terminal, then open the simulator again.',
+			);
+		} else if (choice === DOCS) {
+			void vscode.env.openExternal(vscode.Uri.parse('https://fbidb.io/'));
+		}
+		return false;
+	}
+	return true;
 }
 
 async function pickTarget(): Promise<SimulatorTarget | undefined> {
