@@ -1,0 +1,73 @@
+name: Release
+
+# Tag → .vsix on a GitHub Release. Push a tag like v0.1.0 (matching
+# package.json's version — the guard below enforces it) and this builds the
+# full package on hosted macOS and attaches it to a release. Uses the
+# preinstalled `gh` CLI rather than a release action: this repo restricts
+# Actions to GitHub-owned only.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME != package.json version $PKG_VERSION — bump package.json (or retag) and try again"
+            exit 1
+          fi
+
+      - name: Install idb frameworks (sidecar build dependency)
+        run: |
+          brew tap facebook/fb
+          brew trust --tap facebook/fb
+          brew install idb-companion
+
+      - name: Install node deps
+        run: npm ci
+
+      - name: Package VSIX (universal sidecar + esbuild bundle)
+        run: npx vsce package
+
+      - name: Create GitHub Release with the VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          VSIX="vscodesim-${VERSION}.vsix"
+          test -f "$VSIX"
+          # Plain heredoc to a file, NOT $(cat <<EOF): bash 3.2 (the runner's
+          # default) tokenizes heredoc bodies inside $() as code, so prose
+          # apostrophes become unterminated quotes and kill the parse.
+          cat > /tmp/release-notes.md <<NOTES_EOF
+          ## Install
+
+          1. Native prerequisite (once): \`brew tap facebook/fb && brew trust --tap facebook/fb && brew install idb-companion\`
+          2. Download \`$VSIX\` below, then:
+             \`\`\`bash
+             xattr -d com.apple.quarantine $VSIX 2>/dev/null || true   # browser downloads are quarantined (curl's aren't); sidecar is ad-hoc signed
+             code --install-extension $VSIX
+             \`\`\`
+             If macOS still blocks the sidecar after install, see the README's quarantine note for the installed-path variant.
+          3. Boot a simulator and run **iOS Simulator: Open Panel**.
+
+          Prefer building from source? \`git clone\` + \`./install.sh\` — no quarantine dance needed.
+          NOTES_EOF
+          # Idempotent on re-run: if the release already exists, just refresh the asset.
+          gh release create "$GITHUB_REF_NAME" "$VSIX" \
+            --verify-tag \
+            --title "vscodesim $GITHUB_REF_NAME" \
+            --notes-file /tmp/release-notes.md \
+            --generate-notes \
+          || gh release upload "$GITHUB_REF_NAME" "$VSIX" --clobber
