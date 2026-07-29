@@ -3,6 +3,8 @@
 An embedded iOS Simulator panel for VS Code: a live video mirror of a booted
 simulator with click/tap and keyboard input, streamed into a webview.
 
+![Live iOS Simulator mirrored inside VS Code — opening a photo, swiping, and two-finger pinch-zooming, all rendered from the extension's H.264 stream](docs/demo.gif)
+
 ## Features
 
 - **iOS Simulator: Open Panel** command — mirrors a booted simulator and
