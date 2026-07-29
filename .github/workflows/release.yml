@@ -47,7 +47,10 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           VSIX="vscodesim-${VERSION}.vsix"
           test -f "$VSIX"
-          NOTES="$(cat <<NOTES_EOF
+          # Plain heredoc to a file, NOT $(cat <<EOF): bash 3.2 (the runner's
+          # default) tokenizes heredoc bodies inside $() as code, so prose
+          # apostrophes become unterminated quotes and kill the parse.
+          cat > /tmp/release-notes.md <<NOTES_EOF
           ## Install
 
           1. Native prerequisite (once): \`brew tap facebook/fb && brew trust --tap facebook/fb && brew install idb-companion\`
@@ -61,11 +64,10 @@ jobs:
 
           Prefer building from source? \`git clone\` + \`./install.sh\` — no quarantine dance needed.
           NOTES_EOF
-          )"
           # Idempotent on re-run: if the release already exists, just refresh the asset.
           gh release create "$GITHUB_REF_NAME" "$VSIX" \
             --verify-tag \
             --title "vscodesim $GITHUB_REF_NAME" \
-            --notes "$NOTES" \
+            --notes-file /tmp/release-notes.md \
             --generate-notes \
           || gh release upload "$GITHUB_REF_NAME" "$VSIX" --clobber
