@@ -62,7 +62,23 @@ mapping stays correct.
 5. Boot a simulator, then run **iOS Simulator: Open Panel** from the Command
    Palette
 
-## Packaging & installing
+## Install from source
+
+The quickest way to get the extension into your editor:
+
+```bash
+git clone https://github.com/professor-beep-boop/vscodesim.git
+cd vscodesim && ./install.sh
+```
+
+`install.sh` checks the prerequisites (macOS, Xcode, Node, Homebrew), offers to
+install idb-companion if it's missing, builds everything, and installs the
+packaged extension into VS Code (or `--editor codium|cursor`; it prefers VS
+Code even when `code` isn't on your PATH). Because the sidecar is compiled
+locally it carries no quarantine attribute, so Gatekeeper never prompts.
+`./install.sh --uninstall` removes it.
+
+## Packaging & installing (manual)
 
 ```bash
 npm run package        # builds a universal simhelper + produces vscodesim-*.vsix
