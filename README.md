@@ -64,7 +64,24 @@ mapping stays correct.
 5. Boot a simulator, then run **iOS Simulator: Open Panel** from the Command
    Palette
 
-## Install from source
+## Install
+
+### Native sidecar via Homebrew
+
+The native `simhelper` sidecar (best video quality + multitouch) has its own
+[tap](https://github.com/professor-beep-boop/homebrew-vscodesim), which also
+pulls in the idb-companion frameworks automatically:
+
+```bash
+brew install professor-beep-boop/vscodesim/simhelper
+```
+
+Pair it with the extension from a [release
+VSIX](https://github.com/professor-beep-boop/vscodesim/releases) (install
+notes on each release) — the extension finds the brew-installed sidecar
+automatically. `brew upgrade` keeps the native side current.
+
+### Install from source
 
 The quickest way to get the extension into your editor:
 
