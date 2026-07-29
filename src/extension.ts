@@ -271,7 +271,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 		if (!command) {
 			const CONFIGURE = 'Configure';
 			const choice = await vscode.window.showInformationMessage(
-				'Set `sidesim.run.command` to build & launch your app (e.g. `bazel run //app:MyApp`). ' +
+				'Set `sidesim.run.command` to build & launch your app (e.g. `bazel run //path/to:MyApp`). ' +
 					'The booted device UDID is available to the command as $SIDESIM_TARGET_UDID.',
 				CONFIGURE,
 			);
@@ -280,8 +280,9 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 			}
 			return;
 		}
-		// Reuse the panel's terminal unless it has exited; recreate so the env
-		// (target UDID) is always current for this panel's device.
+		// Reuse the panel's terminal unless it has exited (then recreate). The
+		// UDID env is fixed per panel — target never changes over a panel's life
+		// — so recreate only refreshes after the user manually closes the shell.
 		if (!runTerminal || runTerminal.exitStatus !== undefined) {
 			runTerminal = vscode.window.createTerminal({
 				name: 'Sidesim Run',
@@ -303,7 +304,13 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	});
 }
 
-/** The workspace folder to resolve resource-scoped settings against, if any. */
+/**
+ * The workspace folder to resolve resource-scoped settings against, if any.
+ * Uses the first folder — a panel maps to a device, not a folder, so in a
+ * multi-root workspace per-folder run.command overrides on folders 2+ aren't
+ * picked up (single-project is the assumed case). Undefined → merged user/
+ * workspace settings.
+ */
 function workspaceFolderUri(): vscode.Uri | undefined {
 	return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
