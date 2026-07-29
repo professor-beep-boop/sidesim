@@ -397,6 +397,9 @@
 		}
 	});
 
+	document.getElementById('btn-run').addEventListener('click', () => {
+		vscode.postMessage({ type: 'run' });
+	});
 	document.getElementById('btn-home').addEventListener('click', () => {
 		vscode.postMessage({ type: 'button', name: 'HOME' });
 	});

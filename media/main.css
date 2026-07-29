@@ -38,6 +38,15 @@ body {
 	background: var(--vscode-button-secondaryHoverBackground);
 }
 
+#toolbar button.primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+#toolbar button.primary:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
 #device-label {
 	font-size: 12px;
 	opacity: 0.8;

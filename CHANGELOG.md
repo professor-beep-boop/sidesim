@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- **Build & run from the panel.** A new ▶ Run button runs a user-configured
+  command (`sidesim.run.command`) to build/install/launch your app on the
+  mirrored device — build-system-agnostic (Bazel, xcodebuild, …), with the
+  target UDID exported as `$SIDESIM_TARGET_UDID`.
 - **Renamed: vscodesim → Sidesim.** Breaking if you installed the v0.0.1
   release under the old identity:
   - Settings moved from `vscodesim.simulator.*` to `sidesim.simulator.*`

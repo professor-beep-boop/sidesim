@@ -64,6 +64,12 @@
           "minimum": 0.25,
           "maximum": 1,
           "description": "Video resolution as a fraction of the simulator's native resolution. Applied when a panel opens."
+        },
+        "sidesim.run.command": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "markdownDescription": "Shell command run by the panel's **▶ Run** button to build, install, and launch your app on the booted simulator. Build-system-agnostic — you supply the command. The target device's UDID is exported as `$SIDESIM_TARGET_UDID`, and it runs in the workspace root.\n\nExamples:\n- Bazel (rules_apple): `bazel run //path/to:MyApp`\n- Bazel + explicit target: `bazel build //app:MyApp && xcrun simctl install \"$SIDESIM_TARGET_UDID\" bazel-bin/app/MyApp.app && xcrun simctl launch \"$SIDESIM_TARGET_UDID\" com.example.MyApp`\n- Xcode: `xcodebuild -scheme MyApp -destination \"id=$SIDESIM_TARGET_UDID\" && xcrun simctl launch \"$SIDESIM_TARGET_UDID\" com.example.MyApp`"
         }
       }
     }
