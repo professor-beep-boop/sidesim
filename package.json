@@ -1,7 +1,14 @@
 {
   "name": "vscodesim",
   "displayName": "vscodesim",
-  "description": "",
+  "description": "A live, interactive iOS Simulator embedded in VS Code — video mirror with tap, drag, keyboard, and two-finger pinch input.",
+  "keywords": [
+    "ios",
+    "simulator",
+    "iphone",
+    "xcode",
+    "swift"
+  ],
   "version": "0.0.1",
   "license": "MIT",
   "engines": {

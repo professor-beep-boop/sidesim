@@ -100,3 +100,17 @@ backends. `pipx install fb-idb` additionally enables the `cli` backend.
 If you download a prebuilt VSIX (rather than building locally), macOS may
 quarantine the sidecar binary; clear it with
 `xattr -dr com.apple.quarantine <installed-extension-path>/bin/simhelper`.
+
+## License & disclaimers
+
+MIT — see [LICENSE](LICENSE). Contributions welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md); security reports: see
+[SECURITY.md](SECURITY.md).
+
+This project is not affiliated with, endorsed by, or sponsored by Microsoft,
+Apple, or Meta. "Visual Studio Code", "iOS", "Xcode", and "iPhone" are
+trademarks of their respective owners. The sidecar drives the simulator
+through Meta's open-source [idb](https://fbidb.io) frameworks (MIT), which in
+turn use private Apple CoreSimulator APIs — standard for local developer
+tooling, but this is not App Store material and a major Xcode update can
+break it until idb catches up.
