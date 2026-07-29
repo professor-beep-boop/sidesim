@@ -98,7 +98,8 @@ export const IDB_INSTALL_COMMAND =
 
 /**
  * Locate the simhelper binary: explicit override, then the in-repo build
- * (dev flow), then PATH.
+ * (dev flow), then the packaged binary, then a Homebrew install
+ * (`brew install professor-beep-boop/vscodesim/simhelper`).
  */
 export function findSidecarBinary(): string | undefined {
 	const override = process.env.VSCODESIM_SIMHELPER;
@@ -114,6 +115,13 @@ export function findSidecarBinary(): string | undefined {
 		'../bin/simhelper',
 	]) {
 		const p = path.join(__dirname, rel);
+		if (fs.existsSync(p)) {
+			return p;
+		}
+	}
+	// Homebrew (Apple Silicon prefix, then Intel) — lets a VSIX without a
+	// bundled binary (or a future pure-JS Marketplace build) use the tap.
+	for (const p of ['/opt/homebrew/bin/simhelper', '/usr/local/bin/simhelper']) {
 		if (fs.existsSync(p)) {
 			return p;
 		}
