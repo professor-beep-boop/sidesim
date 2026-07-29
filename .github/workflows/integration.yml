@@ -2,15 +2,16 @@ name: Integration (simulator)
 
 # Simulator-in-the-loop tests: list devices, describe, stream live H.264, tap,
 # and two-finger pinch against a REAL booted simulator via the native simhelper
-# sidecar. GitHub-hosted runners can't boot the sidecar's private-framework
-# stack, so this runs ONLY on the self-hosted macOS runner. It is deliberately
-# NOT a required check — when that Mac is offline a PR must still be mergeable
-# on the hosted `test` gate alone; this adds real-hardware signal when it can.
+# sidecar — on a GitHub-hosted macOS runner (the test script boots a simulator
+# itself). Kept non-required: it's the deepest signal but also the slowest
+# (~5 min) and most environment-sensitive check; the hosted `test` gate stays
+# the merge requirement.
 on:
   pull_request:
     paths:
       - 'sidecar/**'
       - 'src/sidecar.ts'
+      - 'src/log.ts'
       - 'scripts/integration-sim.js'
       - '.github/workflows/integration.yml'
   push:
@@ -18,31 +19,29 @@ on:
     paths:
       - 'sidecar/**'
       - 'src/sidecar.ts'
+      - 'src/log.ts'
       - 'scripts/integration-sim.js'
       - '.github/workflows/integration.yml'
   workflow_dispatch:
 
-# One integration run at a time: every job here drives the Mac's single shared
-# CoreSimulator device set, so overlapping runs would tap/pinch each other's
-# sims. Queue rather than cancel — a half-finished gesture shouldn't be killed.
+# Each hosted VM has its own isolated simulator set, so runs don't contend —
+# just cancel superseded runs on the same ref to save minutes.
 concurrency:
-  group: simulator-integration
-  cancel-in-progress: false
+  group: simulator-integration-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   integration:
-    runs-on: [self-hosted, macOS]
-    timeout-minutes: 20
+    runs-on: macos-14
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure idb frameworks present
+      - name: Install idb frameworks
         run: |
-          brew list idb-companion >/dev/null 2>&1 || {
-            brew tap facebook/fb
-            brew trust --tap facebook/fb
-            brew install idb-companion
-          }
+          brew tap facebook/fb
+          brew trust --tap facebook/fb
+          brew install idb-companion
 
       - name: Install node deps
         run: npm ci
@@ -55,4 +54,13 @@ jobs:
         run: swift build
 
       - name: Simulator integration test
+        env:
+          # Cold CI VMs need far larger budgets than a warm local Mac: the
+          # first CoreSimulatorService contact, the first RPC, and the initial
+          # simulator boot (~60s of "data migration") all run long.
+          VSCODESIM_READY_TIMEOUT_MS: "120000"
+          VSCODESIM_CALL_TIMEOUT_MS: "90000"
+          VSCODESIM_TEST_WATCHDOG_MS: "300000"
+          # Cold VMs can take a long time to deliver the first video frame.
+          VSCODESIM_TEST_FIRSTFRAME_MS: "90000"
         run: npm run test:integration

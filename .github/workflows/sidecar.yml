@@ -35,5 +35,5 @@ jobs:
         run: swift test
         working-directory: sidecar
       # Simulator-in-the-loop integration (listDevices/startVideo against a
-      # booted sim) needs a self-hosted runner with a booted simulator and is
-      # intentionally out of scope for this hosted job.
+      # booted sim) lives in the separate "Integration (simulator)" workflow,
+      # which boots a simulator on its own hosted macOS runner.
