@@ -12,6 +12,28 @@ simulator with click/tap and keyboard input, streamed into a webview.
 - Two connection backends (see below).
 - **Two-finger pinch & rotate** on the `sidecar` backend: hold **⌥ Option** and drag (two fingers symmetric about the screen centre, like the iOS Simulator app).
 
+### Build & run your app
+
+Sidesim mirrors a **booted** simulator — it doesn't build or launch your app,
+which is exactly why it's build-system-agnostic. The panel's **▶ Run** button
+runs a command *you* configure, so it works with any toolchain:
+
+```jsonc
+// settings.json — pick the one that matches your project
+"sidesim.run.command": "bazel run //path/to:MyApp"
+```
+
+The command runs in a dedicated terminal at the workspace root, with the target
+device's UDID exported as `$SIDESIM_TARGET_UDID`. Examples:
+
+- **Bazel** (rules_apple): `bazel run //path/to:MyApp`
+- **Bazel, exact device:** `bazel build //app:MyApp && xcrun simctl install "$SIDESIM_TARGET_UDID" bazel-bin/app/MyApp.app && xcrun simctl launch "$SIDESIM_TARGET_UDID" com.example.MyApp`
+- **Xcode:** `xcodebuild -scheme MyApp -destination "id=$SIDESIM_TARGET_UDID" && xcrun simctl launch "$SIDESIM_TARGET_UDID" com.example.MyApp`
+
+Boot a simulator, open the panel, click ▶ Run, and the mirror reflects each
+rebuild live. (`bazel run` chooses its own simulator; to pin it to the mirrored
+device, use the explicit `simctl` form with `$SIDESIM_TARGET_UDID`.)
+
 ### Video pipeline
 
 The `companion` backend streams **raw BGRA frames** (idb `RBGA` format) and

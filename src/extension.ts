@@ -248,18 +248,71 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 				case 'button':
 					await input.button(msg.name);
 					break;
+				case 'run':
+					await runApp();
+					break;
 			}
 		} catch (err) {
 			vscode.window.showErrorMessage(`Simulator input failed: ${err instanceof Error ? err.message : err}`);
 		}
 	});
 
+	// The ▶ Run button. Sidesim doesn't build anything itself — the user names a
+	// command (sidesim.run.command) that builds/installs/launches their app by
+	// whatever toolchain (Bazel, xcodebuild, …); we run it against this panel's
+	// booted device, and the mirror reflects the result live. A dedicated
+	// terminal gives full output / Ctrl-C and is reused across clicks.
+	let runTerminal: vscode.Terminal | undefined;
+	const runApp = async () => {
+		const command = vscode.workspace
+			.getConfiguration('sidesim', workspaceFolderUri())
+			.get<string>('run.command', '')
+			.trim();
+		if (!command) {
+			const CONFIGURE = 'Configure';
+			const choice = await vscode.window.showInformationMessage(
+				'Set `sidesim.run.command` to build & launch your app (e.g. `bazel run //path/to:MyApp`). ' +
+					'The booted device UDID is available to the command as $SIDESIM_TARGET_UDID.',
+				CONFIGURE,
+			);
+			if (choice === CONFIGURE) {
+				await vscode.commands.executeCommand('workbench.action.openSettings', 'sidesim.run.command');
+			}
+			return;
+		}
+		// Reuse the panel's terminal unless it has exited (then recreate). The
+		// UDID env is fixed per panel — target never changes over a panel's life
+		// — so recreate only refreshes after the user manually closes the shell.
+		if (!runTerminal || runTerminal.exitStatus !== undefined) {
+			runTerminal = vscode.window.createTerminal({
+				name: 'Sidesim Run',
+				env: { SIDESIM_TARGET_UDID: target.udid },
+			});
+			context.subscriptions.push(runTerminal);
+		}
+		runTerminal.show(true);
+		runTerminal.sendText(command);
+	};
+
 	panel.onDidDispose(() => {
 		disposed = true;
 		pendingFrame = undefined;
 		stream.stop();
 		backend.dispose();
+		// Leave runTerminal alive on purpose: a build/launch in flight (and its
+		// output) should survive closing the mirror.
 	});
+}
+
+/**
+ * The workspace folder to resolve resource-scoped settings against, if any.
+ * Uses the first folder — a panel maps to a device, not a folder, so in a
+ * multi-root workspace per-folder run.command overrides on folders 2+ aren't
+ * picked up (single-project is the assumed case). Undefined → merged user/
+ * workspace settings.
+ */
+function workspaceFolderUri(): vscode.Uri | undefined {
+	return vscode.workspace.workspaceFolders?.[0]?.uri;
 }
 
 /** Escape a string for safe interpolation into HTML text/attribute context. */
@@ -285,6 +338,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, title: strin
 </head>
 <body>
 <div id="toolbar">
+	<button id="btn-run" class="primary" title="Build & run your app (configure sidesim.run.command)">▶ Run</button>
 	<span id="device-label"></span>
 	<span class="spacer"></span>
 	<button id="btn-home" title="Home button">⌂ Home</button>
