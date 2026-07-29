@@ -21,7 +21,7 @@ disclosure.
 The extension executes a local native helper (`simhelper`) that drives Apple's
 CoreSimulator via Meta's FBSimulatorControl frameworks, and by default runs it
 under a `sandbox-exec` profile with no network access and file writes limited
-to CoreSimulator/temp paths (`vscodesim.simulator.sandbox`); the optional
+to CoreSimulator/temp paths (`sidesim.simulator.sandbox`); the optional
 `companion`/`cli` backends run Meta's own binaries unsandboxed. Reports about
 sandbox escapes, input-injection abuse, or the webview↔extension message
 surface are especially welcome.

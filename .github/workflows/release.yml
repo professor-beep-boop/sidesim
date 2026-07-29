@@ -45,7 +45,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          VSIX="vscodesim-${VERSION}.vsix"
+          VSIX="sidesim-${VERSION}.vsix"
           test -f "$VSIX"
           # Plain heredoc to a file, NOT $(cat <<EOF): bash 3.2 (the runner's
           # default) tokenizes heredoc bodies inside $() as code, so prose
@@ -67,7 +67,7 @@ jobs:
           # Idempotent on re-run: if the release already exists, just refresh the asset.
           gh release create "$GITHUB_REF_NAME" "$VSIX" \
             --verify-tag \
-            --title "vscodesim $GITHUB_REF_NAME" \
+            --title "Sidesim $GITHUB_REF_NAME" \
             --notes-file /tmp/release-notes.md \
             --generate-notes \
           || gh release upload "$GITHUB_REF_NAME" "$VSIX" --clobber

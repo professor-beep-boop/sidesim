@@ -1,4 +1,4 @@
-# vscodesim
+# Sidesim
 
 An embedded iOS Simulator panel for VS Code: a live video mirror of a booted
 simulator with click/tap and keyboard input, streamed into a webview.
@@ -40,7 +40,7 @@ smearing above.
 ## Backends
 
 The panel can talk to a simulator two ways, selected by
-`vscodesim.simulator.backend`:
+`sidesim.simulator.backend`:
 
 | Value | How it works | Trade-off |
 | --- | --- | --- |
@@ -69,19 +69,19 @@ mapping stays correct.
 ### Native sidecar via Homebrew
 
 The native `simhelper` sidecar (best video quality + multitouch) has its own
-[tap](https://github.com/professor-beep-boop/homebrew-vscodesim), which also
+[tap](https://github.com/professor-beep-boop/homebrew-sidesim), which also
 pulls in the idb-companion frameworks automatically:
 
 ```bash
-brew install professor-beep-boop/vscodesim/simhelper
+brew install professor-beep-boop/sidesim/simhelper
 ```
 
 Pair it with the extension from a [release
-VSIX](https://github.com/professor-beep-boop/vscodesim/releases) (install
+VSIX](https://github.com/professor-beep-boop/sidesim/releases) (install
 notes on each release). Note the precedence: a release VSIX bundles its own
 version-matched sidecar, which the extension prefers; the brew binary serves
 builds without a bundled one (e.g. a future Marketplace VSIX), or set
-`VSCODESIM_SIMHELPER="$(brew --prefix)/bin/simhelper"` to use it explicitly —
+`SIDESIM_SIMHELPER="$(brew --prefix)/bin/simhelper"` to use it explicitly —
 then `brew upgrade` keeps the native side current.
 
 ### Install from source
@@ -89,8 +89,8 @@ then `brew upgrade` keeps the native side current.
 The quickest way to get the extension into your editor:
 
 ```bash
-git clone https://github.com/professor-beep-boop/vscodesim.git
-cd vscodesim && ./install.sh
+git clone https://github.com/professor-beep-boop/sidesim.git
+cd sidesim && ./install.sh
 ```
 
 `install.sh` checks the prerequisites (macOS, Xcode, Node, Homebrew), offers to
@@ -103,8 +103,8 @@ locally it carries no quarantine attribute, so Gatekeeper never prompts.
 ## Packaging & installing (manual)
 
 ```bash
-npm run package        # builds a universal simhelper + produces vscodesim-*.vsix
-code --install-extension vscodesim-*.vsix
+npm run package        # builds a universal simhelper + produces sidesim-*.vsix
+code --install-extension sidesim-*.vsix
 ```
 
 `npm run package` compiles the extension, builds `sidecar/simhelper` as a

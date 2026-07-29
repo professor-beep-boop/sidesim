@@ -14,7 +14,7 @@ import {
 } from './types';
 
 const PROTO_PATH = path.join(__dirname, '..', 'proto', 'idb.proto');
-const COMPANION_BIN = process.env.VSCODESIM_IDB_COMPANION || 'idb_companion';
+const COMPANION_BIN = process.env.SIDESIM_IDB_COMPANION || 'idb_companion';
 const PORT_TIMEOUT_MS = 15000;
 
 // idb VideoStreamRequest.Format

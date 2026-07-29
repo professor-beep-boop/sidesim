@@ -58,9 +58,9 @@ jobs:
           # Cold CI VMs need far larger budgets than a warm local Mac: the
           # first CoreSimulatorService contact, the first RPC, and the initial
           # simulator boot (~60s of "data migration") all run long.
-          VSCODESIM_READY_TIMEOUT_MS: "120000"
-          VSCODESIM_CALL_TIMEOUT_MS: "90000"
-          VSCODESIM_TEST_WATCHDOG_MS: "300000"
+          SIDESIM_READY_TIMEOUT_MS: "120000"
+          SIDESIM_CALL_TIMEOUT_MS: "90000"
+          SIDESIM_TEST_WATCHDOG_MS: "300000"
           # Cold VMs can take a long time to deliver the first video frame.
-          VSCODESIM_TEST_FIRSTFRAME_MS: "90000"
+          SIDESIM_TEST_FIRSTFRAME_MS: "90000"
         run: npm run test:integration
