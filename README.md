@@ -122,27 +122,10 @@ mapping stays correct.
 
 ## Install
 
-### Native sidecar via Homebrew
+### From source (recommended)
 
-The native `simhelper` sidecar (best video quality + multitouch) has its own
-[tap](https://github.com/professor-beep-boop/homebrew-sidesim), which also
-pulls in the idb-companion frameworks automatically:
-
-```bash
-brew install professor-beep-boop/sidesim/simhelper
-```
-
-Pair it with the extension from a [release
-VSIX](https://github.com/professor-beep-boop/sidesim/releases) (install
-notes on each release). Note the precedence: a release VSIX bundles its own
-version-matched sidecar, which the extension prefers; the brew binary serves
-builds without a bundled one (e.g. a future Marketplace VSIX), or set
-`SIDESIM_SIMHELPER="$(brew --prefix)/bin/simhelper"` to use it explicitly —
-then `brew upgrade` keeps the native side current.
-
-### Install from source
-
-The quickest way to get the extension into your editor:
+The one-command install from [Getting started](#getting-started), with its
+options spelled out:
 
 ```bash
 git clone https://github.com/professor-beep-boop/sidesim.git
@@ -155,6 +138,24 @@ packaged extension into VS Code (or `--editor codium|cursor`; it prefers VS
 Code even when `code` isn't on your PATH). Because the sidecar is compiled
 locally it carries no quarantine attribute, so Gatekeeper never prompts.
 `./install.sh --uninstall` removes it.
+
+### Prebuilt VSIX + Homebrew
+
+Don't want to build the extension? Download a `.vsix` from
+[Releases](https://github.com/professor-beep-boop/sidesim/releases) (each
+release lists its install steps), and get the native sidecar from the
+[Homebrew tap](https://github.com/professor-beep-boop/homebrew-sidesim), which
+also pulls in the idb-companion frameworks automatically:
+
+```bash
+brew install professor-beep-boop/sidesim/simhelper
+```
+
+Precedence note: a release VSIX bundles its own version-matched sidecar, which
+the extension prefers; the brew binary serves builds without a bundled one
+(e.g. a future Marketplace VSIX), or set
+`SIDESIM_SIMHELPER="$(brew --prefix)/bin/simhelper"` to use it explicitly —
+then `brew upgrade` keeps the native side current.
 
 ## Packaging & installing (manual)
 
