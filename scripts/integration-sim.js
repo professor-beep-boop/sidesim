@@ -6,7 +6,7 @@
 // devices, describes the screen, streams live H.264 out of the VideoToolbox
 // encoder, taps, and runs a two-finger pinch. It runs on the hosted macOS
 // integration workflow (it boots a simulator itself; cold VMs need the larger
-// VSCODESIM_*_TIMEOUT budgets the workflow sets) and on any Mac with Xcode +
+// SIDESIM_*_TIMEOUT budgets the workflow sets) and on any Mac with Xcode +
 // idb-companion.
 //
 // Run by hand:  npm run compile && node scripts/integration-sim.js
@@ -22,7 +22,7 @@ setLogSink((line) => console.error(`  [sidecar] ${line}`));
 // Hard watchdog: a wedged sidecar or sim must never hang the runner. Force a
 // nonzero exit well before any GitHub job timeout would kill us server-side.
 // Overridable for cold CI VMs, where the simulator boot alone can eat a minute.
-const WATCHDOG_MS = Number(process.env.VSCODESIM_TEST_WATCHDOG_MS) || 90_000;
+const WATCHDOG_MS = Number(process.env.SIDESIM_TEST_WATCHDOG_MS) || 90_000;
 const watchdog = setTimeout(() => {
 	console.error(`FATAL: integration test exceeded ${WATCHDOG_MS}ms — forcing exit`);
 	process.exit(1);
@@ -104,7 +104,7 @@ async function main() {
 		// booted headless sim can sit perfectly static and deliver nothing. Poke
 		// the screen while waiting for the first chunk (cold CI VMs also take a
 		// while to spin up the encoder pipeline), then sample for 4s of activity.
-		const firstFrameBudget = Number(process.env.VSCODESIM_TEST_FIRSTFRAME_MS) || 15_000;
+		const firstFrameBudget = Number(process.env.SIDESIM_TEST_FIRSTFRAME_MS) || 15_000;
 		let pokeErrLogged = false;
 		const poke = () =>
 			backend.input.tap(Math.floor(dims.width / 2), Math.floor(dims.height / 2)).catch((e) => {

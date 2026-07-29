@@ -16,8 +16,8 @@ import {
 
 // Overridable for slow environments (cold CI VMs take >15s for the sidecar's
 // first CoreSimulatorService contact).
-const READY_TIMEOUT_MS = Number(process.env.VSCODESIM_READY_TIMEOUT_MS) || 15000;
-const CALL_TIMEOUT_MS = Number(process.env.VSCODESIM_CALL_TIMEOUT_MS) || 20000;
+const READY_TIMEOUT_MS = Number(process.env.SIDESIM_READY_TIMEOUT_MS) || 15000;
+const CALL_TIMEOUT_MS = Number(process.env.SIDESIM_CALL_TIMEOUT_MS) || 20000;
 const VIDEO_FPS = 30;
 const VIDEO_SCALE = 1.0;
 const VIDEO_BITRATE = 8_000_000;
@@ -60,7 +60,7 @@ function sandboxProfile(): string {
 function sandboxedSpawnArgs(binary: string): { cmd: string; args: string[] } {
 	// Per-process filename: a fixed name races concurrent extension hosts
 	// (truncate-then-write vs sandbox-exec's read).
-	const profilePath = path.join(os.tmpdir(), `vscodesim-simhelper-${process.pid}.sb`);
+	const profilePath = path.join(os.tmpdir(), `sidesim-simhelper-${process.pid}.sb`);
 	fs.writeFileSync(profilePath, sandboxProfile());
 	return { cmd: '/usr/bin/sandbox-exec', args: ['-f', profilePath, binary] };
 }
@@ -99,10 +99,10 @@ export const IDB_INSTALL_COMMAND =
 /**
  * Locate the simhelper binary: explicit override, then the in-repo build
  * (dev flow), then the packaged binary, then a Homebrew install
- * (`brew install professor-beep-boop/vscodesim/simhelper`).
+ * (`brew install professor-beep-boop/sidesim/simhelper`).
  */
 export function findSidecarBinary(): string | undefined {
-	const override = process.env.VSCODESIM_SIMHELPER;
+	const override = process.env.SIDESIM_SIMHELPER;
 	if (override && fs.existsSync(override)) {
 		return override;
 	}

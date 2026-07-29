@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# install.sh — build the vscodesim extension from this checkout and install it
+# install.sh — build the sidesim extension from this checkout and install it
 # into VS Code (or a compatible editor).
 #
-#   git clone https://github.com/professor-beep-boop/vscodesim.git
-#   cd vscodesim && ./install.sh
+#   git clone https://github.com/professor-beep-boop/sidesim.git
+#   cd sidesim && ./install.sh
 #
 # What it does: checks the prerequisites below (with fix-it instructions when
 # one is missing), builds the universal simhelper sidecar + bundles the
@@ -30,7 +30,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-EXT_ID="jbmorgan.vscodesim"
+EXT_ID="jbmorgan.sidesim"
 IDB_INSTALL_CMD='brew tap facebook/fb && brew trust --tap facebook/fb && brew install idb-companion'
 
 say() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -147,7 +147,7 @@ say "Building sidecar + extension and packaging the VSIX…"
 # ad-hoc codesign), check-types, and the esbuild bundle.
 npx vsce package
 
-VSIX="vscodesim-$(node -p "require('./package.json').version").vsix"
+VSIX="sidesim-$(node -p "require('./package.json').version").vsix"
 [[ -f "$VSIX" ]] || die "expected $VSIX after packaging, but it's not here."
 
 if [[ "$NO_INSTALL" == 1 ]]; then

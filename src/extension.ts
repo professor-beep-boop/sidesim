@@ -10,7 +10,7 @@ import { setLogSink } from './log';
 
 function backendPreference(): BackendPreference {
 	const value = vscode.workspace
-		.getConfiguration('vscodesim')
+		.getConfiguration('sidesim')
 		.get<string>('simulator.backend', 'auto');
 	return value === 'sidecar' || value === 'companion' || value === 'cli' ? value : 'auto';
 }
@@ -21,7 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		{ dispose: () => setLogSink(undefined) },
 		channel,
-		vscode.commands.registerCommand('vscodesim.openSimulator', async () => {
+		vscode.commands.registerCommand('sidesim.openSimulator', async () => {
 			try {
 				if (!(await ensurePrerequisites())) {
 					return;
@@ -51,7 +51,7 @@ async function ensurePrerequisites(): Promise<boolean> {
 	}
 	// An explicit binary override means the user is running a custom/self-contained
 	// simhelper whose frameworks may live elsewhere — trust it, skip the probe.
-	if (!idbFrameworksAvailable() && !process.env.VSCODESIM_SIMHELPER) {
+	if (!idbFrameworksAvailable() && !process.env.SIDESIM_SIMHELPER) {
 		const COPY = 'Copy Install Command';
 		const DOCS = 'Open idb Docs';
 		const choice = await vscode.window.showErrorMessage(
@@ -97,7 +97,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 		return;
 	}
 
-	const config = vscode.workspace.getConfiguration('vscodesim');
+	const config = vscode.workspace.getConfiguration('sidesim');
 	const { backend, kind } = await openBackend(target.udid, backendPreference(), {
 		sandbox: config.get<boolean>('simulator.sandbox', true),
 		fps: config.get<number>('simulator.fps', 30),
@@ -112,7 +112,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	}
 
 	const panel = vscode.window.createWebviewPanel(
-		'vscodesim.simulator',
+		'sidesim.simulator',
 		target.name,
 		vscode.ViewColumn.Beside,
 		{

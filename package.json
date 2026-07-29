@@ -1,6 +1,6 @@
 {
-  "name": "vscodesim",
-  "displayName": "vscodesim",
+  "name": "sidesim",
+  "displayName": "Sidesim",
   "description": "A live, interactive iOS Simulator embedded in VS Code — video mirror with tap, drag, keyboard, and two-finger pinch input.",
   "keywords": [
     "ios",
@@ -22,14 +22,14 @@
   "contributes": {
     "commands": [
       {
-        "command": "vscodesim.openSimulator",
+        "command": "sidesim.openSimulator",
         "title": "iOS Simulator: Open Panel"
       }
     ],
     "configuration": {
       "title": "iOS Simulator",
       "properties": {
-        "vscodesim.simulator.backend": {
+        "sidesim.simulator.backend": {
           "type": "string",
           "enum": [
             "auto",
@@ -46,19 +46,19 @@
           "default": "auto",
           "description": "How the simulator panel connects to booted simulators for video and input."
         },
-        "vscodesim.simulator.sandbox": {
+        "sidesim.simulator.sandbox": {
           "type": "boolean",
           "default": true,
           "description": "Run the simhelper sidecar under sandbox-exec (no network access, file writes limited to CoreSimulator and temp directories)."
         },
-        "vscodesim.simulator.fps": {
+        "sidesim.simulator.fps": {
           "type": "number",
           "default": 30,
           "minimum": 5,
           "maximum": 60,
           "description": "Video frame rate. Applied when a panel opens (the stream is fixed for the panel's lifetime)."
         },
-        "vscodesim.simulator.scale": {
+        "sidesim.simulator.scale": {
           "type": "number",
           "default": 1,
           "minimum": 0.25,
@@ -100,6 +100,6 @@
   "publisher": "jbmorgan",
   "repository": {
     "type": "git",
-    "url": "https://github.com/professor-beep-boop/vscodesim.git"
+    "url": "https://github.com/professor-beep-boop/sidesim.git"
   }
 }
