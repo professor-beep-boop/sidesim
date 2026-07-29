@@ -309,6 +309,15 @@ class SidecarProcess {
 			} else {
 				const nl = this.buf.indexOf(0x0a);
 				if (nl < 0) {
+					// No line terminator yet. Bound the wait the same way the frame
+					// path bounds length: a "line" that grows past the cap without a
+					// newline is protocol corruption, not a real message — kill
+					// rather than buffer unboundedly.
+					if (this.buf.length > MAX_FRAME_BYTES) {
+						log(`sidecar: unterminated line (${this.buf.length} bytes) — protocol corrupt, killing`);
+						this.buf = Buffer.alloc(0);
+						this.proc.kill('SIGKILL');
+					}
 					return;
 				}
 				const line = this.buf.subarray(0, nl).toString();

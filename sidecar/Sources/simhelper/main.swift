@@ -333,7 +333,7 @@ final class Sidecar {
 		case "key":
 			let s = try session(req.string("udid"))
 			let hid = try s.connectHID()
-			let code = UInt32(try req.double("code"))
+			let code = try req.uint32("code")
 			try waitFor(hid.sendKeyboardEvent(with: .down, keyCode: code))
 			try waitFor(hid.sendKeyboardEvent(with: .up, keyCode: code))
 			return ["ok": true]
@@ -366,9 +366,12 @@ final class Sidecar {
 	private func startVideo(_ req: Request) throws -> Any {
 		let udid = try req.string("udid")
 		let s = try session(udid)
-		let streamId = UInt32(req.intOr("streamId", 0))
+		let streamId = req.uint32Or("streamId", 0)
 		let fps = req.intOr("fps", 30)
-		let scale = req.doubleOr("scaleFactor", 1.0)
+		// Clamp scale finite and into the same range the extension enforces, so
+		// the Int(...) conversions below can't be fed NaN/Infinity/absurd values.
+		let scaleRaw = req.doubleOr("scaleFactor", 1.0)
+		let scale = scaleRaw.isFinite ? min(max(scaleRaw, 0.1), 1.0) : 1.0
 		let encoding = req.stringOr("encoding", "h264")
 		let bitrate = req.intOr("bitrate", 6_000_000)
 
