@@ -262,10 +262,18 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	});
 }
 
+/** Escape a string for safe interpolation into HTML text/attribute context. */
+function escapeHtml(s: string): string {
+	return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, title: string): string {
 	const h264Uri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'h264.js'));
 	const mainUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.js'));
 	const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'main.css'));
+	// The title is the simulator's device name — attacker-influenceable data.
+	// The CSP already blocks script execution, but don't rely on it as the sole
+	// backstop: escape before it reaches the HTML.
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -273,7 +281,7 @@ function getHtml(webview: vscode.Webview, extensionUri: vscode.Uri, title: strin
 <meta http-equiv="Content-Security-Policy"
 	content="default-src 'none'; script-src ${webview.cspSource}; style-src ${webview.cspSource};">
 <link rel="stylesheet" href="${cssUri}">
-<title>${title}</title>
+<title>${escapeHtml(title)}</title>
 </head>
 <body>
 <div id="toolbar">

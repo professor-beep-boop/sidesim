@@ -112,6 +112,27 @@ struct Request {
 		(params[key] as? NSNumber)?.intValue ?? fallback
 	}
 
+	/// Convert to UInt32, throwing (never trapping) on NaN/Infinity/negative/
+	/// out-of-range input. `UInt32(someDouble)` and `UInt32(negativeInt)` trap
+	/// uncatchably, which a malformed request could otherwise use to abort the
+	/// process; these validate first and surface a JSON error instead.
+	func uint32(_ key: String) throws -> UInt32 {
+		let d = try double(key)
+		guard d.isFinite, d >= 0, d <= Double(UInt32.max) else {
+			throw RequestError("param \(key) out of range")
+		}
+		return UInt32(d)
+	}
+
+	func uint32Or(_ key: String, _ fallback: UInt32) -> UInt32 {
+		guard let d = (params[key] as? NSNumber)?.doubleValue,
+			d.isFinite, d >= 0, d <= Double(UInt32.max)
+		else {
+			return fallback
+		}
+		return UInt32(d)
+	}
+
 	func stringOr(_ key: String, _ fallback: String) -> String {
 		(params[key] as? String) ?? fallback
 	}
