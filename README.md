@@ -78,8 +78,11 @@ brew install professor-beep-boop/vscodesim/simhelper
 
 Pair it with the extension from a [release
 VSIX](https://github.com/professor-beep-boop/vscodesim/releases) (install
-notes on each release) — the extension finds the brew-installed sidecar
-automatically. `brew upgrade` keeps the native side current.
+notes on each release). Note the precedence: a release VSIX bundles its own
+version-matched sidecar, which the extension prefers; the brew binary serves
+builds without a bundled one (e.g. a future Marketplace VSIX), or set
+`VSCODESIM_SIMHELPER="$(brew --prefix)/bin/simhelper"` to use it explicitly —
+then `brew upgrade` keeps the native side current.
 
 ### Install from source
 
