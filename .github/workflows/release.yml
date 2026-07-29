@@ -53,16 +53,19 @@ jobs:
           1. Native prerequisite (once): \`brew tap facebook/fb && brew trust --tap facebook/fb && brew install idb-companion\`
           2. Download \`$VSIX\` below, then:
              \`\`\`bash
-             xattr -d com.apple.quarantine $VSIX   # downloaded files are quarantined; the bundled sidecar is ad-hoc signed
+             xattr -d com.apple.quarantine $VSIX 2>/dev/null || true   # browser downloads are quarantined (curl's aren't); sidecar is ad-hoc signed
              code --install-extension $VSIX
              \`\`\`
+             If macOS still blocks the sidecar after install, see the README's quarantine note for the installed-path variant.
           3. Boot a simulator and run **iOS Simulator: Open Panel**.
 
           Prefer building from source? \`git clone\` + \`./install.sh\` — no quarantine dance needed.
           NOTES_EOF
           )"
+          # Idempotent on re-run: if the release already exists, just refresh the asset.
           gh release create "$GITHUB_REF_NAME" "$VSIX" \
             --verify-tag \
             --title "vscodesim $GITHUB_REF_NAME" \
             --notes "$NOTES" \
-            --generate-notes
+            --generate-notes \
+          || gh release upload "$GITHUB_REF_NAME" "$VSIX" --clobber
