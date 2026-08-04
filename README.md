@@ -89,10 +89,11 @@ flowchart TB
   class RUN build;
 ```
 
-The `sidecar` backend (the native `simhelper`) is the default and highest
-quality; `companion` and `cli` are idb-based fallbacks — see
-[Backends](#backends). Why video streams up as raw/H.264 the way it does is in
-[Video pipeline](#video-pipeline).
+The diagram shows the default **`sidecar`** pipeline (native `simhelper`, best
+quality). The `companion` and `cli` fallbacks don't go through `simhelper` —
+they reach the simulator through `idb_companion` / the `idb` CLI directly. See
+[Backends](#backends) for all three, and [Video pipeline](#video-pipeline) for
+why video streams the way it does.
 
 ## Build & run your app
 
