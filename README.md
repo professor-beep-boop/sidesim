@@ -55,6 +55,46 @@ Details and more examples under [Build & run](#build--run-your-app).
 - **Two-finger pinch & rotate** on the `sidecar` backend: hold **⌥ Option** and drag (two fingers symmetric about the screen centre, like the iOS Simulator app).
 - Three connection backends (see below).
 
+## Architecture
+
+Sidesim is a thin viewer/input layer over a **booted** simulator. Video frames
+flow up the pipeline; taps and keystrokes flow down; your build is a side
+channel that never passes through Sidesim.
+
+```mermaid
+flowchart TB
+  subgraph VSC["VS Code"]
+    direction TB
+    WV["VS Code webview panel<br/>renders video · captures input"]
+    EH["Extension host (Node)<br/>message routing · ▶ Run button"]
+    BE["Backend layer<br/>sidecar · companion · cli"]
+  end
+  SH["simhelper — native Swift<br/>H.264 encode · Indigo HID"]
+  SIM["Booted iOS Simulator<br/>Apple CoreSimulator"]
+  IDB["idb frameworks<br/>FBSimulatorControl · Homebrew"]
+  RUN["▶ Run → integrated terminal<br/>your build: bazel run / xcodebuild"]
+
+  WV <--> EH
+  EH <--> BE
+  BE <-->|"JSON-RPC · H.264 frames"| SH
+  SH <-->|"BGRA framebuffer · HID"| SIM
+  IDB -.->|linked at runtime| SH
+  RUN -.->|installs & launches your app| SIM
+
+  classDef sidesim fill:#534AB7,color:#ffffff,stroke:#3C3489;
+  classDef sys fill:#0F6E56,color:#ffffff,stroke:#085041;
+  classDef build fill:#854F0B,color:#ffffff,stroke:#633806;
+  class WV,EH,BE,SH sidesim;
+  class SIM,IDB sys;
+  class RUN build;
+```
+
+The diagram shows the default **`sidecar`** pipeline (native `simhelper`, best
+quality). The `companion` and `cli` fallbacks don't go through `simhelper` —
+they reach the simulator through `idb_companion` / the `idb` CLI directly. See
+[Backends](#backends) for all three, and [Video pipeline](#video-pipeline) for
+why video streams the way it does.
+
 ## Build & run your app
 
 Sidesim mirrors a **booted** simulator — it doesn't build or launch your app,
