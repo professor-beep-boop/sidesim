@@ -110,6 +110,10 @@ Boot a simulator, open the panel, click ▶ Run, and the mirror reflects each
 rebuild live. (`bazel run` chooses its own simulator; to pin it to the mirrored
 device, use the explicit `simctl` form with `$SIDESIM_TARGET_UDID`.)
 
+Haven't set a command yet? Clicking ▶ Run offers a starter template for the
+build system it detects in your workspace (Bazel or Xcode) — pick one, replace
+the placeholder, and run.
+
 ## Video pipeline
 
 The `companion` backend streams **raw BGRA frames** (idb `RBGA` format) and
