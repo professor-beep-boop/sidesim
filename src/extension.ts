@@ -384,9 +384,18 @@ async function offerRunTemplate(): Promise<void> {
 	}
 
 	// A build command is project-specific, so prefer workspace settings; fall
-	// back to user settings only when no folder is open.
+	// back to user settings only when no folder is open. A write failure (e.g.
+	// read-only settings) is surfaced here, not left to bubble up as a
+	// misleading "Simulator input failed".
 	const target = folder ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
-	await vscode.workspace.getConfiguration('sidesim', folder?.uri).update('run.command', pick.command, target);
+	try {
+		await vscode.workspace.getConfiguration('sidesim', folder?.uri).update('run.command', pick.command, target);
+	} catch (err) {
+		void vscode.window.showErrorMessage(
+			`Couldn't save the run command to settings: ${err instanceof Error ? err.message : err}`,
+		);
+		return;
+	}
 
 	const EDIT = 'Edit command';
 	const choice = await vscode.window.showInformationMessage(
