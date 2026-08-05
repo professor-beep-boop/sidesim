@@ -257,8 +257,37 @@
 			// Fresh stream incoming: decode state was already reset in
 			// recoverDecoder; nothing further to do.
 			statusEl.textContent = `[${BUILD}] streaming…`;
+		} else if (msg.type === 'runStatus') {
+			setRunStatus(msg.state);
 		}
 	});
+
+	// Reflect the ▶ Run task's lifecycle on the button: running while it builds,
+	// then a brief pass/fail before returning to the default label.
+	const btnRun = document.getElementById('btn-run');
+	let runStatusTimer;
+	function resetRun() {
+		btnRun.classList.remove('running', 'ok', 'fail');
+		btnRun.textContent = '▶ Run';
+	}
+	function setRunStatus(state) {
+		clearTimeout(runStatusTimer);
+		btnRun.classList.remove('running', 'ok', 'fail');
+		if (state === 'running') {
+			btnRun.classList.add('running');
+			btnRun.textContent = '▶ Running…';
+		} else if (state === 'ok') {
+			btnRun.classList.add('ok');
+			btnRun.textContent = '✓ Ran';
+			runStatusTimer = setTimeout(resetRun, 2500);
+		} else if (state === 'fail') {
+			btnRun.classList.add('fail');
+			btnRun.textContent = '✗ Failed';
+			runStatusTimer = setTimeout(resetRun, 4000);
+		} else {
+			resetRun();
+		}
+	}
 
 	function toBytes(d) {
 		if (d instanceof Uint8Array) {

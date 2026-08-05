@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- The **▶ Run** button now shows build status — running while it builds, then a
+  brief ✓/✗ from the command's exit code. Runs as a VS Code task (dedicated
+  terminal, full output, Ctrl-C).
 - Clicking **▶ Run** with no command set now offers build-system templates
   (Bazel, Xcode) — the one matching your workspace is listed first — and saves
   your pick to settings with a placeholder to fill in.
