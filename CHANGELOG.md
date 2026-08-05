@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Clicking **▶ Run** with no command set now offers build-system templates
+  (Bazel, Xcode) — the one matching your workspace is listed first — and saves
+  your pick to settings with a placeholder to fill in.
+
 ## [0.1.0] — 2026-08-04
 
 - **Build & run from the panel.** A new ▶ Run button runs a user-configured

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import {
 	listBootedSimulators,
 	openBackend,
@@ -7,6 +8,41 @@ import {
 } from './simulator';
 import { idbFrameworksAvailable, IDB_INSTALL_COMMAND } from './sidecar';
 import { setLogSink } from './log';
+
+/**
+ * Starter `sidesim.run.command` templates offered by the ▶ Run button when no
+ * command is set yet. `detect` recognises the project's build system from
+ * marker files so the matching template is surfaced first — but the command
+ * stays fully user-owned (each template carries an obvious placeholder to
+ * replace). Only build systems that actually deploy to a simulator are here;
+ * SwiftPM is intentionally omitted (it can't build/launch an iOS app on a sim).
+ */
+interface RunTemplate {
+	system: string;
+	command: string;
+	detect: (root: string) => boolean;
+}
+
+const RUN_TEMPLATES: RunTemplate[] = [
+	{
+		system: 'Bazel',
+		command: 'bazel run //path/to:MyApp',
+		detect: (root) =>
+			['MODULE.bazel', 'WORKSPACE', 'WORKSPACE.bazel'].some((f) => fs.existsSync(`${root}/${f}`)),
+	},
+	{
+		system: 'Xcode',
+		command:
+			'xcodebuild -scheme MyApp -destination "id=$SIDESIM_TARGET_UDID" && xcrun simctl launch "$SIDESIM_TARGET_UDID" com.example.MyApp',
+		detect: (root) => {
+			try {
+				return fs.readdirSync(root).some((f) => f.endsWith('.xcodeproj') || f.endsWith('.xcworkspace'));
+			} catch {
+				return false;
+			}
+		},
+	},
+];
 
 function backendPreference(): BackendPreference {
 	const value = vscode.workspace
@@ -269,15 +305,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 			.get<string>('run.command', '')
 			.trim();
 		if (!command) {
-			const CONFIGURE = 'Configure';
-			const choice = await vscode.window.showInformationMessage(
-				'Set `sidesim.run.command` to build & launch your app (e.g. `bazel run //path/to:MyApp`). ' +
-					'The booted device UDID is available to the command as $SIDESIM_TARGET_UDID.',
-				CONFIGURE,
-			);
-			if (choice === CONFIGURE) {
-				await vscode.commands.executeCommand('workbench.action.openSettings', 'sidesim.run.command');
-			}
+			await offerRunTemplate();
 			return;
 		}
 		// Reuse the panel's terminal unless it has exited (then recreate). The
@@ -313,6 +341,62 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
  */
 function workspaceFolderUri(): vscode.Uri | undefined {
 	return vscode.workspace.workspaceFolders?.[0]?.uri;
+}
+
+interface TemplateItem extends vscode.QuickPickItem {
+	command?: string;
+	system?: string;
+}
+
+/**
+ * No run command set yet: offer build-system templates (the ones detected in
+ * the workspace first), save the pick to settings, and point the user at the
+ * placeholder to fill in. Dismissing does nothing.
+ */
+async function offerRunTemplate(): Promise<void> {
+	const folder = vscode.workspace.workspaceFolders?.[0];
+	const root = folder?.uri.fsPath;
+	const detected = root ? RUN_TEMPLATES.filter((t) => t.detect(root)).map((t) => t.system) : [];
+
+	const templateItems: TemplateItem[] = RUN_TEMPLATES.map((t) => ({
+		label: `$(rocket) ${t.system}`,
+		description: detected.includes(t.system) ? 'detected in this workspace' : undefined,
+		detail: t.command,
+		command: t.command,
+		system: t.system,
+	}));
+	templateItems.sort((a, b) => (a.description ? 0 : 1) - (b.description ? 0 : 1));
+	const items: TemplateItem[] = [
+		...templateItems,
+		{ label: '$(gear) Custom…', detail: 'Open settings and write your own command' },
+	];
+
+	const pick = await vscode.window.showQuickPick(items, {
+		title: 'Set a build & run command for ▶ Run',
+		placeHolder: 'Sidesim runs this to build and launch your app on the simulator',
+	});
+	if (!pick) {
+		return;
+	}
+	if (!pick.command) {
+		await vscode.commands.executeCommand('workbench.action.openSettings', 'sidesim.run.command');
+		return;
+	}
+
+	// A build command is project-specific, so prefer workspace settings; fall
+	// back to user settings only when no folder is open.
+	const target = folder ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+	await vscode.workspace.getConfiguration('sidesim', folder?.uri).update('run.command', pick.command, target);
+
+	const EDIT = 'Edit command';
+	const choice = await vscode.window.showInformationMessage(
+		`Saved a ${pick.system} template to ${folder ? 'workspace' : 'user'} settings — ` +
+			'replace the placeholder, then click ▶ Run again.',
+		EDIT,
+	);
+	if (choice === EDIT) {
+		await vscode.commands.executeCommand('workbench.action.openSettings', 'sidesim.run.command');
+	}
 }
 
 /** Escape a string for safe interpolation into HTML text/attribute context. */
