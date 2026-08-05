@@ -296,9 +296,14 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	// The ▶ Run button. Sidesim doesn't build anything itself — the user names a
 	// command (sidesim.run.command) that builds/installs/launches their app by
 	// whatever toolchain (Bazel, xcodebuild, …); we run it against this panel's
-	// booted device, and the mirror reflects the result live. A dedicated
-	// terminal gives full output / Ctrl-C and is reused across clicks.
-	let runTerminal: vscode.Terminal | undefined;
+	// booted device, and the mirror reflects the result live. It runs as a VS
+	// Code Task (not a raw terminal) so we can report its exit status back to
+	// the panel — the task terminal still gives full output and Ctrl-C.
+	let runExecution: vscode.TaskExecution | undefined;
+	// True between calling executeTask and seeing our start event — closes the
+	// race where the process starts before `await executeTask` assigns
+	// runExecution (which would otherwise drop the "Running…" state).
+	let pendingRun = false;
 	const runApp = async () => {
 		const command = vscode.workspace
 			.getConfiguration('sidesim', workspaceFolderUri())
@@ -308,27 +313,75 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 			await offerRunTemplate();
 			return;
 		}
-		// Reuse the panel's terminal unless it has exited (then recreate). The
-		// UDID env is fixed per panel — target never changes over a panel's life
-		// — so recreate only refreshes after the user manually closes the shell.
-		if (!runTerminal || runTerminal.exitStatus !== undefined) {
-			runTerminal = vscode.window.createTerminal({
-				name: 'Sidesim Run',
-				env: { SIDESIM_TARGET_UDID: target.udid },
-			});
-			context.subscriptions.push(runTerminal);
+		const folder = vscode.workspace.workspaceFolders?.[0];
+		const shell = new vscode.ShellExecution(command, {
+			cwd: folder?.uri.fsPath,
+			env: { SIDESIM_TARGET_UDID: target.udid },
+		});
+		const task = new vscode.Task(
+			{ type: 'sidesim-run' },
+			folder ?? vscode.TaskScope.Workspace,
+			'Sidesim Run',
+			'Sidesim',
+			shell,
+		);
+		// Dedicated, cleared-each-run terminal; don't steal focus from the mirror.
+		task.presentationOptions = {
+			reveal: vscode.TaskRevealKind.Always,
+			panel: vscode.TaskPanelKind.Dedicated,
+			clear: true,
+			focus: false,
+		};
+		pendingRun = true;
+		try {
+			runExecution = await vscode.tasks.executeTask(task);
+		} catch (err) {
+			pendingRun = false;
+			void vscode.window.showErrorMessage(
+				`Couldn't start the run command: ${err instanceof Error ? err.message : err}`,
+			);
 		}
-		runTerminal.show(true);
-		runTerminal.sendText(command);
 	};
+
+	// Reflect the run task's lifecycle on the panel's ▶ Run button. Guard on
+	// `disposed` — a task can outlive the panel, and posting to a dead webview
+	// throws. Match on the execution so other tasks in the window don't leak in.
+	const runStatusListeners = [
+		vscode.tasks.onDidStartTaskProcess((e) => {
+			// Normally match on the execution; but if the start event beats the
+			// `await executeTask` assignment, fall back to our still-pending
+			// sidesim-run task and capture the execution so the end event matches.
+			const ours =
+				e.execution === runExecution ||
+				(pendingRun && !runExecution && e.execution.task.definition.type === 'sidesim-run');
+			if (ours && !disposed) {
+				pendingRun = false;
+				runExecution = e.execution;
+				void panel.webview.postMessage({ type: 'runStatus', state: 'running' });
+			}
+		}),
+		vscode.tasks.onDidEndTaskProcess((e) => {
+			if (e.execution === runExecution && !disposed) {
+				void panel.webview.postMessage({
+					type: 'runStatus',
+					state: e.exitCode === 0 ? 'ok' : 'fail',
+					code: e.exitCode ?? null,
+				});
+				runExecution = undefined;
+				pendingRun = false;
+			}
+		}),
+	];
 
 	panel.onDidDispose(() => {
 		disposed = true;
 		pendingFrame = undefined;
 		stream.stop();
 		backend.dispose();
-		// Leave runTerminal alive on purpose: a build/launch in flight (and its
-		// output) should survive closing the mirror.
+		// Stop listening for run status, but leave the run task itself running:
+		// a build/launch in flight (and its terminal output) should survive
+		// closing the mirror.
+		runStatusListeners.forEach((d) => d.dispose());
 	});
 }
 
