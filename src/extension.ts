@@ -300,6 +300,10 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	// Code Task (not a raw terminal) so we can report its exit status back to
 	// the panel — the task terminal still gives full output and Ctrl-C.
 	let runExecution: vscode.TaskExecution | undefined;
+	// True between calling executeTask and seeing our start event — closes the
+	// race where the process starts before `await executeTask` assigns
+	// runExecution (which would otherwise drop the "Running…" state).
+	let pendingRun = false;
 	const runApp = async () => {
 		const command = vscode.workspace
 			.getConfiguration('sidesim', workspaceFolderUri())
@@ -328,9 +332,11 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 			clear: true,
 			focus: false,
 		};
+		pendingRun = true;
 		try {
 			runExecution = await vscode.tasks.executeTask(task);
 		} catch (err) {
+			pendingRun = false;
 			void vscode.window.showErrorMessage(
 				`Couldn't start the run command: ${err instanceof Error ? err.message : err}`,
 			);
@@ -342,7 +348,15 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 	// throws. Match on the execution so other tasks in the window don't leak in.
 	const runStatusListeners = [
 		vscode.tasks.onDidStartTaskProcess((e) => {
-			if (e.execution === runExecution && !disposed) {
+			// Normally match on the execution; but if the start event beats the
+			// `await executeTask` assignment, fall back to our still-pending
+			// sidesim-run task and capture the execution so the end event matches.
+			const ours =
+				e.execution === runExecution ||
+				(pendingRun && !runExecution && e.execution.task.definition.type === 'sidesim-run');
+			if (ours && !disposed) {
+				pendingRun = false;
+				runExecution = e.execution;
 				void panel.webview.postMessage({ type: 'runStatus', state: 'running' });
 			}
 		}),
@@ -354,6 +368,7 @@ async function openSimulatorPanel(context: vscode.ExtensionContext): Promise<voi
 					code: e.exitCode ?? null,
 				});
 				runExecution = undefined;
+				pendingRun = false;
 			}
 		}),
 	];
