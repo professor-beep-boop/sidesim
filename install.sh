@@ -107,7 +107,10 @@ find_editor() {
 	[[ -n "$EDITOR_CLI" ]] || die "no editor CLI found (code/codium/cursor, or a \
 VS Code / Cursor / VSCodium app bundle). In VS Code, run 'Shell Command: \
 Install \"code\" command in PATH' from the Command Palette, or pass --editor <cli>."
-	say "Using editor CLI: $EDITOR_CLI"
+	# Report the resolved path, not the bare name: a fork's own `code` shim on
+	# PATH would otherwise be announced as plain "code", hiding which editor
+	# is about to be installed into.
+	say "Using editor CLI: $(command -v "$EDITOR_CLI" 2>/dev/null || echo "$EDITOR_CLI")"
 }
 
 if [[ "$UNINSTALL" == 1 ]]; then
