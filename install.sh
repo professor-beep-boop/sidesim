@@ -24,9 +24,9 @@
 #   ./install.sh --no-install    build + package only (leaves the .vsix)
 #   ./install.sh --uninstall     remove the extension from the editor
 #   ./install.sh --yes           don't prompt before `brew install idb-companion`
-#   ./install.sh --editor codium use a specific editor CLI (default: `code` on
-#                                PATH, then VS Code.app's bundled CLI, then
-#                                codium/cursor)
+#   ./install.sh --editor cursor use a specific editor CLI (default: `code` on
+#                                PATH, then VS Code.app's bundled CLI, then a
+#                                codium/cursor CLI, then a fork app bundle)
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -59,6 +59,15 @@ VSCODE_APP_CLIS=(
 	"$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 )
 
+# Same story for VS Code forks (Sidesim runs in them — Cursor is verified): the
+# CLI is inside the bundle and may never have been linked onto PATH.
+FORK_APP_CLIS=(
+	"/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+	"$HOME/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+	"/Applications/VSCodium.app/Contents/Resources/app/bin/codium"
+	"$HOME/Applications/VSCodium.app/Contents/Resources/app/bin/codium"
+)
+
 find_editor() {
 	if [[ -n "$EDITOR_CLI" ]]; then
 		command -v "$EDITOR_CLI" >/dev/null || die "editor CLI '$EDITOR_CLI' not found on PATH"
@@ -86,10 +95,22 @@ find_editor() {
 			fi
 		done
 	fi
-	[[ -n "$EDITOR_CLI" ]] || die "no editor CLI found (code/codium/cursor, or VS Code.app). \
-In VS Code, run 'Shell Command: Install \"code\" command in PATH' from the \
-Command Palette, or pass --editor <cli>."
-	say "Using editor CLI: $EDITOR_CLI"
+	if [[ -z "$EDITOR_CLI" ]]; then
+		local fork_cli
+		for fork_cli in "${FORK_APP_CLIS[@]}"; do
+			if [[ -x "$fork_cli" ]]; then
+				EDITOR_CLI="$fork_cli"
+				break
+			fi
+		done
+	fi
+	[[ -n "$EDITOR_CLI" ]] || die "no editor CLI found (code/codium/cursor, or a \
+VS Code / Cursor / VSCodium app bundle). In VS Code, run 'Shell Command: \
+Install \"code\" command in PATH' from the Command Palette, or pass --editor <cli>."
+	# Report the resolved path, not the bare name: a fork's own `code` shim on
+	# PATH would otherwise be announced as plain "code", hiding which editor
+	# is about to be installed into.
+	say "Using editor CLI: $(command -v "$EDITOR_CLI" 2>/dev/null || echo "$EDITOR_CLI")"
 }
 
 if [[ "$UNINSTALL" == 1 ]]; then
