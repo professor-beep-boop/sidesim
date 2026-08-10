@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Verified running in **Cursor** (VS Code base 1.99, full `sidecar` backend);
+  documented editor support, and `install.sh` now also finds Cursor/VSCodium
+  when their CLI isn't on `PATH`.
 - The **▶ Run** button now shows build status — running while it builds, then a
   brief ✓/✗ from the command's exit code. Runs as a VS Code task (dedicated
   terminal, full output, Ctrl-C).

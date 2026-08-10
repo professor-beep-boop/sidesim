@@ -133,6 +133,11 @@ smearing above.
 ## Requirements
 
 - macOS with Xcode and at least one **booted** iOS Simulator.
+- **VS Code, or a VS Code fork.** Sidesim uses only stable extension APIs, so it
+  runs anywhere with a VS Code ≥ 1.90 extension host. Verified: **VS Code** and
+  **Cursor** (VS Code base 1.99, full `sidecar` backend with live H.264);
+  VSCodium and Windsurf should work the same way. `install.sh` finds all of
+  these, or pass `--editor <cli>`.
 - Meta's [`idb_companion`](https://fbidb.io) — `install.sh` sets this up for
   you; to do it by hand: `brew install facebook/fb/idb-companion` (add
   `pipx install fb-idb` only if you want the fallback `cli` backend).
