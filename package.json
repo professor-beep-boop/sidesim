@@ -11,6 +11,7 @@
   ],
   "version": "0.2.0",
   "license": "MIT",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.90.0"
   },

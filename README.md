@@ -234,6 +234,11 @@ MIT — see [LICENSE](LICENSE). Contributions welcome: see
 [CONTRIBUTING.md](CONTRIBUTING.md); security reports: see
 [SECURITY.md](SECURITY.md).
 
+The extension icon is built from the ▶️ glyph in
+[Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji), used
+under the MIT License — copyright (c) Microsoft Corporation; full notice in
+[licenses/fluentui-emoji-LICENSE.txt](licenses/fluentui-emoji-LICENSE.txt).
+
 This project is not affiliated with, endorsed by, or sponsored by Microsoft,
 Apple, or Meta. "Visual Studio Code", "iOS", "Xcode", and "iPhone" are
 trademarks of their respective owners. The sidecar drives the simulator
