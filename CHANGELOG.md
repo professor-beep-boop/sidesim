@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-10
+
 - Verified running in **Cursor** (VS Code base 1.99, full `sidecar` backend);
   documented editor support, and `install.sh` now also finds Cursor/VSCodium
   when their CLI isn't on `PATH`.
