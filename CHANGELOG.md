@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Added an extension icon (required for Marketplace/Open VSX publishing), built
+  from Microsoft Fluent Emoji's ▶️ glyph under its MIT license.
+
 ## [0.2.0] — 2026-08-10
 
 - Verified running in **Cursor** (VS Code base 1.99, full `sidecar` backend);
