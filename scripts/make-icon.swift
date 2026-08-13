@@ -49,6 +49,13 @@ func render(_ px:Int,_ out:String){
         UTType.png.identifier as CFString,1,nil) else {return}
     CGImageDestinationAddImage(d,img,nil); CGImageDestinationFinalize(d)
 }
-let dir=CommandLine.arguments[1]
-render(512,"\(dir)/icon.png"); render(32,"\(dir)/icon-32.png"); render(128,"\(dir)/icon-128.png")
-print("rendered")
+let dir = CommandLine.arguments[1]
+// Only the real asset lands in the repo. The small previews exist purely to
+// eyeball sidebar legibility, so they go to a temp dir — writing them next to
+// icon.png would leave untracked files that vsce happily packages.
+render(512, "\(dir)/icon.png")
+let tmp = NSTemporaryDirectory()
+render(32,  "\(tmp)/sidesim-icon-32.png")
+render(128, "\(tmp)/sidesim-icon-128.png")
+print("wrote \(dir)/icon.png")
+print("previews: \(tmp)sidesim-icon-32.png, \(tmp)sidesim-icon-128.png")
