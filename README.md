@@ -235,8 +235,9 @@ MIT — see [LICENSE](LICENSE). Contributions welcome: see
 [SECURITY.md](SECURITY.md).
 
 The extension icon is composed from the 📱 and ▶️ glyphs in
-[Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji), used
-under the MIT License — copyright (c) Microsoft Corporation; full notice in
+[Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji) (the
+phone lightened for contrast against the backplate), used under the MIT
+License — copyright (c) Microsoft Corporation; full notice in
 [licenses/fluentui-emoji-LICENSE.txt](licenses/fluentui-emoji-LICENSE.txt).
 
 This project is not affiliated with, endorsed by, or sponsored by Microsoft,
