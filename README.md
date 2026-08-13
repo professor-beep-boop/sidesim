@@ -234,7 +234,7 @@ MIT — see [LICENSE](LICENSE). Contributions welcome: see
 [CONTRIBUTING.md](CONTRIBUTING.md); security reports: see
 [SECURITY.md](SECURITY.md).
 
-The extension icon is built from the ▶️ glyph in
+The extension icon is composed from the 📱 and ▶️ glyphs in
 [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji), used
 under the MIT License — copyright (c) Microsoft Corporation; full notice in
 [licenses/fluentui-emoji-LICENSE.txt](licenses/fluentui-emoji-LICENSE.txt).

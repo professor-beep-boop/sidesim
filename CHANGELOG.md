@@ -2,8 +2,8 @@
 
 ## [Unreleased]
 
-- Added an extension icon (required for Marketplace/Open VSX publishing), built
-  from Microsoft Fluent Emoji's ▶️ glyph under its MIT license.
+- Added an extension icon (required for Marketplace/Open VSX publishing),
+  composed from Microsoft Fluent Emoji's 📱 and ▶️ glyphs under its MIT license.
 
 ## [0.2.0] — 2026-08-10
 
