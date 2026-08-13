@@ -2,8 +2,9 @@
 
 ## [Unreleased]
 
-- Added an extension icon (required for Marketplace/Open VSX publishing), built
-  from Microsoft Fluent Emoji's ▶️ glyph under its MIT license.
+- Added an extension icon (required for Marketplace/Open VSX publishing): a
+  📲-style mark — an arrow into a device — drawn as original artwork, so the
+  extension carries no third-party image assets.
 
 ## [0.2.0] — 2026-08-10
 
